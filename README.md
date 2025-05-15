@@ -9,7 +9,7 @@ The application is aimed at motor rehabilitation and neurofeedback, initially te
 ---
 
 ## 📂 Folder Structure
-
+'''
 MasterDegree/
 ├── data/
 ├── scripts/
@@ -20,7 +20,7 @@ MasterDegree/
 ├── requirements.txt
 ├── README.md
 └── .gitignore
-
+'''
 
 
 ### `data/`
@@ -70,7 +70,7 @@ A aplicação visa contribuir com a reabilitação motora e o neurofeedback, sen
 ---
 
 ## 📂 Estrutura de Pastas
-
+'''
 MasterDegree/
 ├── data/
 ├── scripts/
@@ -81,7 +81,7 @@ MasterDegree/
 ├── requirements.txt
 ├── README.md
 └── .gitignore
-
+'''
 ### `data/`
 Contém os dados de EEG e EMG utilizados no projeto:
 - `raw/`: sinais brutos adquiridos durante os experimentos.
