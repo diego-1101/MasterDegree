@@ -70,8 +70,8 @@ A aplicação visa contribuir com a reabilitação motora e o neurofeedback, sen
 ---
 
 ## 📂 Estrutura de Pastas
-'''
-'''MasterDegree/
+
+```MasterDegree/
 ├── data/
 ├── scripts/
 ├── models/
@@ -80,7 +80,7 @@ A aplicação visa contribuir com a reabilitação motora e o neurofeedback, sen
 ├── unity_project/
 ├── requirements.txt
 ├── README.md
-└── .gitignore'''
+└── .gitignore```
 
 ### `data/`
 Contém os dados de EEG e EMG utilizados no projeto:
