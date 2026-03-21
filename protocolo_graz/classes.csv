@@ -1,0 +1,6 @@
+id_classe,descricao,stim_path,event_label,trigger
+0,relaxado,images\classe_0_relaxado.png,STIM_RELAX_0,10
+1,direita30,images\classe_1_direita30.png,STIM_D30_1,11
+2,direita45,images\classe_2_direita45.png,STIM_D45_2,12
+3,direita60,images\classe_3_direita60.png,STIM_D60_3,13
+4,direita90,images\classe_4_direita90.png,STIM_D90_4,14
