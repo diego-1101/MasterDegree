@@ -41,6 +41,7 @@ public class Experiment2RedesignedMenu : MonoBehaviour
     private string streamTypeText = "EEG";
     private string baselineText = "10";
     private string fixationText = "3";
+    private string cueText = "1";
     private string taskText = "3.75";
     private string minPauseText = "1.5";
     private string maxPauseText = "3.5";
@@ -62,7 +63,12 @@ public class Experiment2RedesignedMenu : MonoBehaviour
     private List<GeneratedTrialRow> generatedTrialPlan = new List<GeneratedTrialRow>();
     private string lastPresetPath = "";
     private string lastTrialPlanPath = "";
+    private bool fileBrowserOpen;
+    private string markerTestStatus = "Outlet markers: nao publicado.";
 
+    private const float ReferenceWidth = 1920f;
+    private const float ReferenceHeight = 1080f;
+    private const int MarkerTestCode = 9999;
     private const BindingFlags PrivateInstance = BindingFlags.Instance | BindingFlags.NonPublic;
     private const string CuePresetPrefsKey = "Experiment2.GrazCuePreset";
 
@@ -111,6 +117,7 @@ public class Experiment2RedesignedMenu : MonoBehaviour
         streamTypeText = ui.inputStreamType != null ? ui.inputStreamType.text : streamTypeText;
         baselineText = ui._baselineField != null ? ui._baselineField.text : baselineText;
         fixationText = ui._fixationField != null ? ui._fixationField.text : fixationText;
+        cueText = GrazController.instance != null ? GrazController.instance.cueDuration.ToString(CultureInfo.InvariantCulture) : cueText;
         taskText = ui._feedbackField != null ? ui._feedbackField.text : taskText;
         minPauseText = ui._minPauseField != null ? ui._minPauseField.text : minPauseText;
         maxPauseText = ui._maxPauseField != null ? ui._maxPauseField.text : maxPauseText;
@@ -157,6 +164,7 @@ public class Experiment2RedesignedMenu : MonoBehaviour
         public string sessionId;
         public string run;
         public string repetitionsPerClass;
+        public string cueDuration;
         public string randomSeed;
         public bool shuffle;
         public string markerStreamName;
@@ -263,25 +271,50 @@ public class Experiment2RedesignedMenu : MonoBehaviour
             return;
         if (ShouldHideForPhotoMode())
             return;
+        if (fileBrowserOpen || FileBrowser.IsOpen)
+            return;
 
         EnsureStyles();
 
-        float margin = Mathf.Max(18f, Screen.width * 0.035f);
-        float top = Mathf.Max(16f, Screen.height * 0.035f);
-        var page = new Rect(margin, top, Screen.width - margin * 2f, Screen.height - top * 2f);
+        var previousMatrix = GUI.matrix;
+        ApplyScaledGuiMatrix();
+
+        try
+        {
+            DrawScaledMenu();
+        }
+        finally
+        {
+            GUI.matrix = previousMatrix;
+        }
+    }
+
+    private void DrawScaledMenu()
+    {
+        float margin = ReferenceWidth * 0.04f;
+        float top = ReferenceHeight * 0.035f;
+        var page = new Rect(margin, top, ReferenceWidth - margin * 2f, ReferenceHeight - top * 2f);
 
         GUILayout.BeginArea(page, pageStyle);
         DrawHeader();
 
         GUILayout.Space(12f);
         GUILayout.BeginHorizontal();
-        DrawModeColumn(GUILayout.Width(Mathf.Clamp(page.width * 0.22f, 220f, 310f)), GUILayout.ExpandHeight(true));
-        GUILayout.Space(12f);
+        DrawModeColumn(GUILayout.Width(page.width * 0.24f), GUILayout.ExpandHeight(true));
+        GUILayout.Space(16f);
         DrawMainColumn(GUILayout.ExpandWidth(true), GUILayout.ExpandHeight(true));
-        GUILayout.Space(12f);
-        DrawActionColumn(GUILayout.Width(Mathf.Clamp(page.width * 0.25f, 260f, 340f)), GUILayout.ExpandHeight(true));
+        GUILayout.Space(16f);
+        DrawActionColumn(GUILayout.Width(page.width * 0.25f), GUILayout.ExpandHeight(true));
         GUILayout.EndHorizontal();
         GUILayout.EndArea();
+    }
+
+    private void ApplyScaledGuiMatrix()
+    {
+        float scale = Mathf.Min(Screen.width / ReferenceWidth, Screen.height / ReferenceHeight);
+        float offsetX = (Screen.width - ReferenceWidth * scale) * 0.5f;
+        float offsetY = (Screen.height - ReferenceHeight * scale) * 0.5f;
+        GUI.matrix = Matrix4x4.TRS(new Vector3(offsetX, offsetY, 0f), Quaternion.identity, new Vector3(scale, scale, 1f));
     }
 
     private void DrawHeader()
@@ -447,6 +480,7 @@ public class Experiment2RedesignedMenu : MonoBehaviour
         markerStreamNameText = Field("Stream markers", markerStreamNameText, "outlet enviado pelo Unity");
         markerStreamTypeText = Field("Tipo markers", markerStreamTypeText, "normalmente Markers");
         numericMarkersOnly = GUILayout.Toggle(numericMarkersOnly, "Enviar pelo LSL apenas codigo numerico");
+        DrawMarkerTestPanel();
 
         GUILayout.BeginHorizontal();
         if (GUILayout.Button("Aplicar campos", buttonStyle, GUILayout.Height(36f)))
@@ -463,6 +497,7 @@ public class Experiment2RedesignedMenu : MonoBehaviour
         Card("Tempos do GRAZ", "Duracao de cada fase usada pelos markers e pelo log.");
         baselineText = Field("Baseline (s)", baselineText, "inicio da sessao/run");
         fixationText = Field("Fixation (s)", fixationText, "ponto/cruz antes da cue");
+        cueText = Field("Cue (s)", cueText, "imagem da classe e marker numerico");
         taskText = Field("Task/feedback (s)", taskText, "execucao ou imaginacao");
         minPauseText = Field("Pausa min (s)", minPauseText, "pausa randomizada minima");
         maxPauseText = Field("Pausa max (s)", maxPauseText, "pausa randomizada maxima");
@@ -493,14 +528,23 @@ public class Experiment2RedesignedMenu : MonoBehaviour
         if (GUILayout.Button("Carregar padrao", buttonStyle, GUILayout.Height(34f)))
             LoadCuePresetFromPrefs(true);
         if (GUILayout.Button("Salvar JSON", buttonStyle, GUILayout.Height(34f)))
+        {
             StartCoroutine(SaveCuePresetJsonCoroutine());
+            GUIUtility.ExitGUI();
+        }
         if (GUILayout.Button("Carregar JSON", buttonStyle, GUILayout.Height(34f)))
+        {
             StartCoroutine(LoadCuePresetJsonCoroutine());
+            GUIUtility.ExitGUI();
+        }
         GUILayout.EndHorizontal();
 
         GUILayout.BeginHorizontal();
         if (GUILayout.Button("Exportar ordem", buttonStyle, GUILayout.Height(34f)))
+        {
             StartCoroutine(ExportTrialPlanJsonCoroutine());
+            GUIUtility.ExitGUI();
+        }
         if (GUILayout.Button("Restaurar simples", buttonStyle, GUILayout.Height(34f)))
             ResetDefaultCueClasses();
         GUILayout.EndHorizontal();
@@ -573,7 +617,10 @@ public class Experiment2RedesignedMenu : MonoBehaviour
         GUILayout.Label("Imagem", fieldLabelStyle, GUILayout.Width(70f));
         cueClass.cueImagePath = GUILayout.TextField(cueClass.cueImagePath, GUILayout.Height(26f));
         if (GUILayout.Button("Escolher", buttonStyle, GUILayout.Width(82f), GUILayout.Height(26f)))
+        {
             StartCoroutine(SelectCueImageCoroutine(index));
+            GUIUtility.ExitGUI();
+        }
         GUILayout.EndHorizontal();
 
         GUILayout.BeginHorizontal();
@@ -744,11 +791,13 @@ public class Experiment2RedesignedMenu : MonoBehaviour
 
     private IEnumerator SelectCueImageCoroutine(int cueIndex)
     {
+        fileBrowserOpen = true;
         FileBrowser.SetFilters(true, new FileBrowser.Filter("Images", ".jpg", ".jpeg", ".png"));
         FileBrowser.SetDefaultFilter(".png");
         FileBrowser.SetExcludedExtensions(".lnk", ".tmp", ".zip", ".rar", ".exe");
 
         yield return FileBrowser.WaitForLoadDialog(FileBrowser.PickMode.Files, false, null, null, "Selecione a imagem da cue", "Usar imagem");
+        fileBrowserOpen = false;
         if (!FileBrowser.Success || FileBrowser.Result == null || FileBrowser.Result.Length == 0)
         {
             status = "Selecao de imagem cancelada.";
@@ -767,9 +816,11 @@ public class Experiment2RedesignedMenu : MonoBehaviour
         var defaultPath = GetPresetDirectory();
         var filename = MakeFileSafe(presetNameText) + ".json";
 
+        fileBrowserOpen = true;
         FileBrowser.SetFilters(true, new FileBrowser.Filter("JSON", ".json"));
         FileBrowser.SetDefaultFilter(".json");
         yield return FileBrowser.WaitForSaveDialog(FileBrowser.PickMode.Files, false, defaultPath, filename, "Salvar preset GRAZ", "Salvar");
+        fileBrowserOpen = false;
 
         if (!FileBrowser.Success || FileBrowser.Result == null || FileBrowser.Result.Length == 0)
         {
@@ -782,9 +833,11 @@ public class Experiment2RedesignedMenu : MonoBehaviour
 
     private IEnumerator LoadCuePresetJsonCoroutine()
     {
+        fileBrowserOpen = true;
         FileBrowser.SetFilters(true, new FileBrowser.Filter("JSON", ".json"));
         FileBrowser.SetDefaultFilter(".json");
         yield return FileBrowser.WaitForLoadDialog(FileBrowser.PickMode.Files, false, GetPresetDirectory(), null, "Carregar preset GRAZ", "Carregar");
+        fileBrowserOpen = false;
 
         if (!FileBrowser.Success || FileBrowser.Result == null || FileBrowser.Result.Length == 0)
         {
@@ -808,9 +861,11 @@ public class Experiment2RedesignedMenu : MonoBehaviour
         var defaultPath = GetPresetDirectory();
         var filename = MakeFileSafe(presetNameText) + "_trial_order.json";
 
+        fileBrowserOpen = true;
         FileBrowser.SetFilters(true, new FileBrowser.Filter("JSON", ".json"));
         FileBrowser.SetDefaultFilter(".json");
         yield return FileBrowser.WaitForSaveDialog(FileBrowser.PickMode.Files, false, defaultPath, filename, "Exportar ordem de trials", "Exportar");
+        fileBrowserOpen = false;
 
         if (!FileBrowser.Success || FileBrowser.Result == null || FileBrowser.Result.Length == 0)
         {
@@ -888,6 +943,7 @@ public class Experiment2RedesignedMenu : MonoBehaviour
             sessionId = sessionIdText,
             run = runText,
             repetitionsPerClass = repetitionsPerClassText,
+            cueDuration = cueText,
             randomSeed = randomSeedText,
             shuffle = shuffleTrials,
             markerStreamName = markerStreamNameText,
@@ -904,6 +960,7 @@ public class Experiment2RedesignedMenu : MonoBehaviour
         sessionIdText = string.IsNullOrWhiteSpace(data.sessionId) ? sessionIdText : data.sessionId;
         runText = string.IsNullOrWhiteSpace(data.run) ? runText : data.run;
         repetitionsPerClassText = string.IsNullOrWhiteSpace(data.repetitionsPerClass) ? repetitionsPerClassText : data.repetitionsPerClass;
+        cueText = string.IsNullOrWhiteSpace(data.cueDuration) ? cueText : data.cueDuration;
         randomSeedText = string.IsNullOrWhiteSpace(data.randomSeed) ? randomSeedText : data.randomSeed;
         markerStreamNameText = string.IsNullOrWhiteSpace(data.markerStreamName) ? markerStreamNameText : data.markerStreamName;
         markerStreamTypeText = string.IsNullOrWhiteSpace(data.markerStreamType) ? markerStreamTypeText : data.markerStreamType;
@@ -1035,6 +1092,8 @@ public class Experiment2RedesignedMenu : MonoBehaviour
     {
         if (activeMode == ExperimentMode.Capture)
             return "Abrir camera";
+        if (activeMode == ExperimentMode.GrazAcquisition)
+            return "Iniciar aquisicao";
         if (activeMode == ExperimentMode.GrazFeedback)
             return "Iniciar feedback";
         return "Rota preparada";
@@ -1077,6 +1136,7 @@ public class Experiment2RedesignedMenu : MonoBehaviour
             ui.inputStreamType.text = streamTypeText;
         ui.SetTrials(trialsText);
         ConfigureMarkerOutlet();
+        ConfigureExperimentalLogger();
         status = "Campos de sessao/LSL aplicados.";
     }
 
@@ -1092,6 +1152,15 @@ public class Experiment2RedesignedMenu : MonoBehaviour
             ui._minPauseField.text = minPauseText;
         if (ui._maxPauseField != null)
             ui._maxPauseField.text = maxPauseText;
+        if (GrazController.instance != null)
+        {
+            GrazController.instance.baselineDuration = ParseFloat(baselineText, 10f);
+            GrazController.instance.fixationDuration = ParseFloat(fixationText, 3f);
+            GrazController.instance.cueDuration = ParseFloat(cueText, 1f);
+            GrazController.instance.feedbackDuration = ParseFloat(taskText, 3.75f);
+            GrazController.instance.minPauseDuration = ParseFloat(minPauseText, 1.5f);
+            GrazController.instance.maxPauseDuration = ParseFloat(maxPauseText, 3.5f);
+        }
         status = "Tempos do GRAZ aplicados.";
     }
 
@@ -1120,6 +1189,100 @@ public class Experiment2RedesignedMenu : MonoBehaviour
             outlet.Configure(markerStreamNameText, markerStreamTypeText, numericMarkersOnly);
     }
 
+    private void DrawMarkerTestPanel()
+    {
+        var outlet = LSLMarkerOutlet.Instance;
+        bool published = outlet != null && outlet.IsReady;
+
+        GUILayout.Space(6f);
+        GUILayout.BeginVertical(GUI.skin.box);
+        GUILayout.Label("Teste LSL markers", sectionTitleStyle);
+        GUILayout.Label("Use junto com lsl_tests/marker_inlet_monitor.py para confirmar a recepcao real.", bodyStyle);
+
+        string publishedStatus = published
+            ? "Stream LSL markers publicada: " + outlet.StreamName + " / " + outlet.StreamType + " | enviados: " + outlet.SentMarkersCount
+            : "Stream LSL markers desconectada/nao publicada.";
+        GUILayout.Label(publishedStatus, published ? statusStyle : bodyStyle);
+        GUILayout.Label(markerTestStatus, bodyStyle);
+
+        GUILayout.BeginHorizontal();
+        if (GUILayout.Button("Publicar stream", buttonStyle, GUILayout.Height(34f)))
+            PublishMarkerStreamForTest();
+        if (GUILayout.Button("Enviar marker teste", buttonStyle, GUILayout.Height(34f)))
+            SendMarkerTest();
+        GUILayout.EndHorizontal();
+        GUILayout.EndVertical();
+    }
+
+    private void PublishMarkerStreamForTest()
+    {
+        ConfigureMarkerOutlet();
+
+        var outlet = LSLMarkerOutlet.Instance;
+        if (outlet == null || !outlet.IsReady)
+        {
+            markerTestStatus = "Stream LSL markers desconectada/nao publicada.";
+            status = markerTestStatus;
+            return;
+        }
+
+        outlet.Publish();
+        markerTestStatus = "Stream LSL markers publicada. Abra o receptor Python e envie o marker teste.";
+        status = markerTestStatus;
+    }
+
+    private void SendMarkerTest()
+    {
+        ConfigureMarkerOutlet();
+
+        var outlet = LSLMarkerOutlet.Instance;
+        if (outlet == null || !outlet.IsReady)
+        {
+            markerTestStatus = "Stream LSL markers desconectada/nao publicada.";
+            status = markerTestStatus;
+            return;
+        }
+
+        outlet.SendTestMarker(MarkerTestCode);
+        markerTestStatus = "Marker teste enviado: " + MarkerTestCode + ". Confirme no receptor Python.";
+        status = markerTestStatus;
+    }
+
+    private void ConfigureExperimentalLogger()
+    {
+        if (ui == null)
+            return;
+
+        var config = new ExperimentalLogSessionConfig
+        {
+            experimentName = "Experiment 2",
+            mode = activeMode.ToString(),
+            subjectId = subjectIdText,
+            sessionId = sessionIdText,
+            run = runText,
+            presetName = presetNameText,
+            logPath = ui._pathLog,
+            inputStreamName = streamNameText,
+            inputStreamType = streamTypeText,
+            markerStreamName = markerStreamNameText,
+            markerStreamType = markerStreamTypeText,
+            totalTrials = ParsePositiveInt(trialsText, 1),
+            baselineDuration = ParseFloat(baselineText, 10f),
+            fixationDuration = ParseFloat(fixationText, 3f),
+            cueDuration = ParseFloat(cueText, 1f),
+            feedbackDuration = ParseFloat(taskText, 3.75f),
+            minPauseDuration = ParseFloat(minPauseText, 1.5f),
+            maxPauseDuration = ParseFloat(maxPauseText, 3.5f),
+            gravity = ParseFloat(gravityText, 9.81f),
+            defaultTolerance = ParseFloat(toleranceText, 5f),
+            defaultHoldTime = ParseFloat(holdTimeText, 3f),
+            shuffleTrials = shuffleTrials,
+            randomSeed = randomSeedText
+        };
+
+        ui.ConfigureExperimentalLogger(config);
+    }
+
     private void StartSelectedMode()
     {
         ApplySessionFields();
@@ -1134,6 +1297,12 @@ public class Experiment2RedesignedMenu : MonoBehaviour
                 photoMode.EntryPhotoMode();
                 GUIUtility.ExitGUI();
             }
+            return;
+        }
+
+        if (activeMode == ExperimentMode.GrazAcquisition)
+        {
+            StartGrazAcquisition();
             return;
         }
 
@@ -1153,6 +1322,104 @@ public class Experiment2RedesignedMenu : MonoBehaviour
         }
 
         status = "Esta rota ja esta desenhada e sera implementada na proxima etapa.";
+    }
+
+    private void StartGrazAcquisition()
+    {
+        if (!ValidateCueClasses(out string validationMessage, true))
+        {
+            status = validationMessage;
+            return;
+        }
+
+        GenerateTrialPreview();
+        if (generatedTrialPlan.Count == 0)
+        {
+            status = "Gere pelo menos um trial para iniciar a aquisicao.";
+            return;
+        }
+
+        ConfigureMarkerOutlet();
+        ConfigureExperimentalLogger();
+
+        var logger = ExperimentalSessionLogger.Instance;
+        if (logger != null)
+            logger.BeginSession("graz_acquisition_start");
+
+        if (ui != null)
+        {
+            if (ui.configsUI != null)
+                ui.configsUI.SetActive(false);
+            if (ui.spaceBar != null)
+                ui.spaceBar.SetActive(false);
+            if (ui.statusUI != null && ui.statusUI.configs != null)
+                ui.statusUI.configs.SetActive(false);
+            if (ui.startGame != null)
+            {
+                ui.startGame.Started = true;
+                ui.startGame.isInitialize = true;
+                ui.startGame.actTrials = 0;
+            }
+        }
+
+        enabled = false;
+        status = "Aquisicao GRAZ em andamento.";
+
+        var graz = GrazController.instance;
+        if (graz == null)
+        {
+            status = "GrazController nao encontrado.";
+            enabled = true;
+            return;
+        }
+
+        graz.StartAcquisitionProtocol(BuildAcquisitionTrials(), OnGrazAcquisitionFinished);
+    }
+
+    private List<GrazAcquisitionTrial> BuildAcquisitionTrials()
+    {
+        var trials = new List<GrazAcquisitionTrial>(generatedTrialPlan.Count);
+        foreach (var trial in generatedTrialPlan)
+        {
+            trials.Add(new GrazAcquisitionTrial
+            {
+                trialIndex = trial.trialIndex,
+                subjectId = trial.subjectId,
+                sessionId = trial.sessionId,
+                run = trial.run,
+                classId = trial.classId,
+                label = trial.label,
+                markerCode = trial.markerCode,
+                cueImagePath = trial.cueImagePath,
+                description = trial.description,
+                targetAngle = trial.targetAngle,
+                tolerance = trial.tolerance,
+                holdTime = trial.holdTime,
+                randomSeed = trial.randomSeed,
+                shuffled = trial.shuffled
+            });
+        }
+
+        return trials;
+    }
+
+    private void OnGrazAcquisitionFinished()
+    {
+        if (ui != null)
+        {
+            if (ui.statusUI != null && ui.statusUI.configs != null)
+                ui.statusUI.configs.SetActive(true);
+            if (ui.startGame != null)
+            {
+                ui.startGame.Started = false;
+                ui.startGame.isInitialize = false;
+                ui.startGame.actTrials = 0;
+            }
+        }
+
+        enabled = true;
+        HideLegacyConfigPanel();
+        status = "Aquisicao GRAZ concluida. Log salvo.";
     }
 
     private bool ShouldHideForPhotoMode()

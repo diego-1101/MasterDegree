@@ -83,6 +83,9 @@ public class MedidorMovement : MonoBehaviour
                 entrouOver = false;
                 FeedbackController.instance.PlayParabens();
                 RealtimeLog.instance._acerto = "ACERTOU";
+                var experimentalLogger = ExperimentalSessionLogger.Instance;
+                if (experimentalLogger != null)
+                    experimentalLogger.LogResult(true, "ACERTOU", "hold_time_reached");
             }
         }
         else if (entrouOver)
@@ -92,6 +95,9 @@ public class MedidorMovement : MonoBehaviour
             entrouOver = false;
             FeedbackController.instance.PlayErrou();
             RealtimeLog.instance._acerto = "ERROU";
+            var experimentalLogger = ExperimentalSessionLogger.Instance;
+            if (experimentalLogger != null)
+                experimentalLogger.LogResult(false, "ERROU", "left_target_before_hold_time");
         }
         else
             _waitingForMinimum = false;

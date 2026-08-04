@@ -132,6 +132,8 @@ public class UIConfigs : MonoBehaviour
     [SerializeField] private int defaultTrials = 25; // Trials padr�o
 
     [HideInInspector] public InputRandomCS inputRandom;
+    protected ExperimentalSessionLogger experimentalLogger;
+    protected ExperimentalLogSessionConfig experimentalLogConfig;
 
     public virtual void Awake()
     {
@@ -144,6 +146,8 @@ public class UIConfigs : MonoBehaviour
         var lsl = FindAnyObjectByType<LSLReceiver>();
         inputStreamName.text = lsl.streamName;
         inputStreamType.text = lsl.streamType;
+        EnsureExperimentalLogger();
+        ReleaseCursorForUi();
     }
 
     public virtual void Start()
@@ -156,6 +160,8 @@ public class UIConfigs : MonoBehaviour
 
     public virtual void Update()
     {
+        ReleaseCursorForUi();
+
         // Tecla X para voltar ao menu de configura��es
         if (startGame != null)
         {
@@ -181,6 +187,12 @@ public class UIConfigs : MonoBehaviour
         // Ajusta altura dos containers de UI
         AdjustContainerHeight(_inputsTransformCue);
         AdjustContainerHeight(_inputsTransformCue.parent.GetComponent<RectTransform>());
+    }
+
+    protected void ReleaseCursorForUi()
+    {
+        Cursor.lockState = CursorLockMode.None;
+        Cursor.visible = true;
     }
 
     private PhotoMode photoMode;
@@ -395,6 +407,55 @@ public class UIConfigs : MonoBehaviour
             _realtime = FindAnyObjectByType<RealtimeLog>();
 
         _realtime.StartPath(_pathLog);
+
+        EnsureExperimentalLogger();
+        ReleaseCursorForUi();
+        if (experimentalLogConfig == null)
+            ConfigureExperimentalLogger(BuildDefaultExperimentalLogConfig("legacy_flow"));
+        experimentalLogger.BeginSession("StartLogRealtime");
+    }
+
+    public void ConfigureExperimentalLogger(ExperimentalLogSessionConfig config)
+    {
+        EnsureExperimentalLogger();
+        ReleaseCursorForUi();
+        experimentalLogConfig = config ?? BuildDefaultExperimentalLogConfig("unspecified");
+        experimentalLogger.Configure(experimentalLogConfig);
+    }
+
+    protected ExperimentalSessionLogger EnsureExperimentalLogger()
+    {
+        if (experimentalLogger == null)
+            experimentalLogger = FindAnyObjectByType<ExperimentalSessionLogger>();
+        if (experimentalLogger == null)
+            experimentalLogger = gameObject.AddComponent<ExperimentalSessionLogger>();
+        return experimentalLogger;
+    }
+
+    protected virtual ExperimentalLogSessionConfig BuildDefaultExperimentalLogConfig(string mode)
+    {
+        var lsl = LSLReceiver.instance;
+        var graz = GrazController.instance;
+        return new ExperimentalLogSessionConfig
+        {
+            experimentName = _ui == UIModo.Dois ? "Experiment 2" : "Experiment 1",
+            mode = mode,
+            subjectId = "S01",
+            sessionId = "01",
+            run = "1",
+            logPath = _pathLog,
+            inputStreamName = lsl != null ? lsl.streamName : "",
+            inputStreamType = lsl != null ? lsl.streamType : "",
+            markerStreamName = LSLMarkerOutlet.Instance != null ? LSLMarkerOutlet.Instance.StreamName : "",
+            markerStreamType = LSLMarkerOutlet.Instance != null ? LSLMarkerOutlet.Instance.StreamType : "",
+            totalTrials = startGame != null ? startGame.trials : 0,
+            baselineDuration = graz != null ? graz.baselineDuration : 0f,
+            fixationDuration = graz != null ? graz.fixationDuration : 0f,
+            cueDuration = graz != null ? graz.cueDuration : 0f,
+            feedbackDuration = graz != null ? graz.feedbackDuration : 0f,
+            minPauseDuration = graz != null ? graz.minPauseDuration : 0f,
+            maxPauseDuration = graz != null ? graz.maxPauseDuration : 0f
+        };
     }
 
     #region PATH

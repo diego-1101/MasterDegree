@@ -31,6 +31,10 @@ public class LSLMarkerOutlet : MonoBehaviour
     public string StreamName => streamName;
     public string StreamType => streamType;
     public bool NumericOnly => numericOnly;
+    public int LastMarkerCode { get; private set; }
+    public string LastMarkerLabel { get; private set; } = "";
+    public float LastMarkerUnityTime { get; private set; } = -1f;
+    public int SentMarkersCount { get; private set; }
 
     private void Awake()
     {
@@ -47,6 +51,16 @@ public class LSLMarkerOutlet : MonoBehaviour
     }
 
     public void SendClassMarker(int markerCode)
+    {
+        SendMarker(markerCode, markerCode.ToString());
+    }
+
+    public void Publish()
+    {
+        EnsureOutlet();
+    }
+
+    public void SendTestMarker(int markerCode = 9999)
     {
         SendMarker(markerCode, markerCode.ToString());
     }
@@ -73,6 +87,11 @@ public class LSLMarkerOutlet : MonoBehaviour
             stringSample[0] = string.IsNullOrWhiteSpace(markerLabel) ? markerCode.ToString() : markerLabel;
             outlet.push_sample(stringSample);
         }
+
+        LastMarkerCode = markerCode;
+        LastMarkerLabel = string.IsNullOrWhiteSpace(markerLabel) ? markerCode.ToString() : markerLabel;
+        LastMarkerUnityTime = Time.realtimeSinceStartup;
+        SentMarkersCount++;
     }
 
     private void EnsureOutlet()

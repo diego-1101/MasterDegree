@@ -1,4 +1,7 @@
-﻿using System.Collections;
+﻿using System;
+using System.Collections;
+using System.Collections.Generic;
+using System.IO;
 using UnityEngine;
 using TMPro;
 using UnityEngine.UI;
@@ -50,9 +53,12 @@ public class GrazController : MonoBehaviour
     private AudioSource source;
 
     private Coroutine grazCoroutine;
+    private Coroutine acquisitionCoroutine;
 
     private RealtimeLog realtimeLog; // Sistema de log
     private StartGame startGame; // Controlador do jogo
+    private int globalTrialIndex;
+    private readonly Dictionary<string, Texture2D> cueTextureCache = new Dictionary<string, Texture2D>();
 
     private void Awake()
     {
@@ -70,7 +76,8 @@ public class GrazController : MonoBehaviour
     {
         if (realtimeLog == null)
             realtimeLog = RealtimeLog.instance;
-        realtimeLog._acerto = "NEUTRO";
+        if (realtimeLog != null)
+            realtimeLog._acerto = "NEUTRO";
     }
 
     // Ativa/desativa canvas
@@ -82,6 +89,14 @@ public class GrazController : MonoBehaviour
 
     public void StartProtocol() => grazCoroutine = StartCoroutine(GrazProtocol());
 
+    public void StartAcquisitionProtocol(List<GrazAcquisitionTrial> trials, Action onCompleted = null)
+    {
+        if (acquisitionCoroutine != null)
+            StopCoroutine(acquisitionCoroutine);
+
+        acquisitionCoroutine = StartCoroutine(GrazAcquisitionProtocol(trials, onCompleted));
+    }
+
     // Define rotação da imagem de cue
     public void SetCueImageDirection(float dir)
     {
@@ -90,9 +105,23 @@ public class GrazController : MonoBehaviour
 
     public void EndProtocol()
     {
-        if (grazCoroutine == null)
-            return;
-        StopCoroutine(grazCoroutine);
+        if (grazCoroutine != null)
+        {
+            StopCoroutine(grazCoroutine);
+            grazCoroutine = null;
+        }
+
+        if (acquisitionCoroutine != null)
+        {
+            StopCoroutine(acquisitionCoroutine);
+            acquisitionCoroutine = null;
+        }
+
+        inGrazProtocol = false;
+        OnFeedbackPhase = false;
+        indicationImage.enabled = false;
+        cueImageDirection.enabled = false;
+        ToggleCanvas(false);
     }
 
     // Protocolo principal Graz
@@ -110,6 +139,7 @@ public class GrazController : MonoBehaviour
         realtimeLog._acerto = "NEUTRO";
 
         inGrazProtocol = true;
+        globalTrialIndex = 0;
 
         int cueCount = 0;
 
@@ -143,6 +173,11 @@ public class GrazController : MonoBehaviour
             // Loop por todos os trials
             while (startGame.actTrials < trials && StartGame.instance.Started)
             {
+                int trialIndex = ++globalTrialIndex;
+                int markerCode = 1000 + cueCount;
+                float targetAngle = GetCurrentTargetAngle();
+                float holdTime = GetCurrentHoldTime();
+                ExperimentalSessionLogger.Instance?.LogTrialStart(trialIndex, cueCount, realtimeLog._target, markerCode, targetAngle, 0f, holdTime);
                 realtimeLog._tentativa = startGame.actTrials;
                 Debug.Log($"Trial {StartGame.instance.actTrials} / {trials}");
 
@@ -151,6 +186,8 @@ public class GrazController : MonoBehaviour
                 yield return CuePhase(cueCount);
 
                 yield return FeedbackPhase();
+                bool success = realtimeLog._acerto == "ACERTOU";
+                ExperimentalSessionLogger.Instance?.LogTrialEnd(realtimeLog._acerto, success);
                 realtimeLog._acerto = "NEUTRO";
                 yield return PausePhase();
 
@@ -167,7 +204,69 @@ public class GrazController : MonoBehaviour
 
         StartGame.instance.RestartGame();
     }
+    private IEnumerator GrazAcquisitionProtocol(List<GrazAcquisitionTrial> trials, Action onCompleted)
+    {
+        Debug.Log("Protocolo GRAZ de aquisicao iniciado");
 
+        if (trials == null || trials.Count == 0)
+        {
+            Debug.LogWarning("Plano de trials GRAZ vazio.");
+            onCompleted?.Invoke();
+            yield break;
+        }
+
+        if (realtimeLog == null)
+            realtimeLog = RealtimeLog.instance;
+
+        ToggleCanvas(true);
+        indicationImage.enabled = false;
+        cueImageDirection.enabled = false;
+        inGrazProtocol = true;
+        OnFeedbackPhase = false;
+        globalTrialIndex = 0;
+
+        yield return BaselinePhase();
+
+        for (int i = 0; i < trials.Count; i++)
+        {
+            var trial = trials[i];
+            globalTrialIndex = trial.trialIndex > 0 ? trial.trialIndex : i + 1;
+
+            if (realtimeLog != null)
+            {
+                realtimeLog._tentativa = globalTrialIndex;
+                realtimeLog._classe = i;
+                realtimeLog._target = trial.label;
+                realtimeLog._acerto = "AQUISICAO";
+            }
+
+            ExperimentalSessionLogger.Instance?.LogTrialStart(
+                globalTrialIndex,
+                i,
+                trial.label,
+                trial.markerCode,
+                trial.targetAngle,
+                trial.tolerance,
+                trial.holdTime);
+
+            yield return FixationPhase();
+            yield return CuePhase(trial, i);
+            yield return AcquisitionTaskPhase(trial);
+            yield return PausePhase();
+
+            ExperimentalSessionLogger.Instance?.LogTrialEnd("AQUISICAO", true);
+        }
+
+        inGrazProtocol = false;
+        indicationImage.enabled = false;
+        cueImageDirection.enabled = false;
+        ToggleCanvas(false);
+        ExperimentalSessionLogger.Instance?.EndSession("graz_acquisition_completed");
+        acquisitionCoroutine = null;
+
+        Debug.Log("Protocolo GRAZ de aquisicao concluido");
+        onCompleted?.Invoke();
+    }
     public IEnumerator BaselinePhase()
     {
         Debug.Log("Inicio da baseline");
@@ -175,11 +274,16 @@ public class GrazController : MonoBehaviour
         if (realtimeLog == null)
             realtimeLog = RealtimeLog.instance;
 
-        realtimeLog._marcador = "BASE";
-        realtimeLog._marcadorNum = 1;
+        if (realtimeLog != null)
+        {
+            realtimeLog._marcador = "BASE";
+            realtimeLog._marcadorNum = 1;
+        }
+        SendPhaseStart(1, "BASE", "baseline", $"duration={baselineDuration}");
 
         yield return new WaitForSeconds(baselineDuration);
 
+        ExperimentalSessionLogger.Instance?.LogPhaseEnd("baseline", 1, "BASE");
         Debug.Log("Fim da baseline");
     }
 
@@ -189,11 +293,16 @@ public class GrazController : MonoBehaviour
 
         indicationImage.enabled = true;
 
-        realtimeLog._marcador = "FIX";
-        realtimeLog._marcadorNum = 2;
+        if (realtimeLog != null)
+        {
+            realtimeLog._marcador = "FIX";
+            realtimeLog._marcadorNum = 2;
+        }
+        SendPhaseStart(2, "FIX", "fixation", $"duration={fixationDuration}");
 
         yield return new WaitForSeconds(fixationDuration);
 
+        ExperimentalSessionLogger.Instance?.LogPhaseEnd("fixation", 2, "FIX");
         Debug.Log("Fim do fixation");
     }
 
@@ -210,14 +319,60 @@ public class GrazController : MonoBehaviour
 
         realtimeLog._marcador = "CUE";
         realtimeLog._marcadorNum = 3;
+        SendPhaseStart(3, "CUE", "cue", $"duration={cueDuration}");
+        int classMarkerCode = 1000 + cue;
+        LSLMarkerOutlet.Instance?.SendClassMarker(classMarkerCode);
+        ExperimentalSessionLogger.Instance?.LogClassMarker(classMarkerCode, cue, realtimeLog._target);
 
         yield return new WaitForSeconds(cueDuration);
 
         cueImageDirection.enabled = false;
 
+        ExperimentalSessionLogger.Instance?.LogPhaseEnd("cue", 3, "CUE");
         Debug.Log("Fim do cue");
     }
+    private IEnumerator CuePhase(GrazAcquisitionTrial trial, int classIndex)
+    {
+        Debug.Log("Inicio do cue de aquisicao");
 
+        indicationImage.enabled = false;
+        cueImageDirection.enabled = true;
+        cueImageDirection.rectTransform.eulerAngles = Vector3.zero;
+        cueImageDirection.texture = LoadCueTexture(trial.cueImagePath) ?? defaultCueImage;
+
+        if (realtimeLog != null)
+        {
+            realtimeLog._marcador = "CUE";
+            realtimeLog._marcadorNum = 3;
+        }
+
+        SendPhaseStart(3, "CUE", "cue", $"duration={cueDuration};class={trial.label};image={trial.cueImagePath}");
+        LSLMarkerOutlet.Instance?.SendClassMarker(trial.markerCode);
+        ExperimentalSessionLogger.Instance?.LogClassMarker(trial.markerCode, classIndex, trial.label);
+
+        yield return new WaitForSeconds(cueDuration);
+
+        cueImageDirection.enabled = false;
+        ExperimentalSessionLogger.Instance?.LogPhaseEnd("cue", 3, "CUE");
+        Debug.Log("Fim do cue de aquisicao");
+    }
+
+    private IEnumerator AcquisitionTaskPhase(GrazAcquisitionTrial trial)
+    {
+        Debug.Log("Inicio da task de aquisicao");
+
+        if (realtimeLog != null)
+        {
+            realtimeLog._marcador = "TASK";
+            realtimeLog._marcadorNum = 4;
+        }
+
+        SendPhaseStart(4, "TASK", "task", $"duration={feedbackDuration};class={trial.label}");
+        yield return new WaitForSeconds(feedbackDuration);
+        ExperimentalSessionLogger.Instance?.LogPhaseEnd("task", 4, "TASK");
+
+        Debug.Log("Fim da task de aquisicao");
+    }
     private float randomDuration;
 
     public IEnumerator FeedbackPhase()
@@ -228,6 +383,7 @@ public class GrazController : MonoBehaviour
 
         realtimeLog._marcador = "FEED";
         realtimeLog._marcadorNum = 4;
+        SendPhaseStart(4, "FEED", "feedback", $"duration={feedbackDuration}");
 
         yield return new WaitForSeconds(feedbackDuration);
 
@@ -246,6 +402,7 @@ public class GrazController : MonoBehaviour
             }
         }
 
+        ExperimentalSessionLogger.Instance?.LogPhaseEnd("feedback", 4, "FEED");
         Debug.Log("Fim do feedback");
     }
 
@@ -253,11 +410,61 @@ public class GrazController : MonoBehaviour
     {
         Debug.Log("Inicio do pause");
 
-        realtimeLog._marcador = "PAUSE";
-        realtimeLog._marcadorNum = 5;
+        if (realtimeLog != null)
+        {
+            realtimeLog._marcador = "PAUSE";
+            realtimeLog._marcadorNum = 5;
+        }
+        randomDuration = UnityEngine.Random.Range(minPauseDuration, maxPauseDuration);
+        SendPhaseStart(5, "PAUSE", "pause", $"duration={randomDuration}");
 
         yield return new WaitForSeconds(randomDuration);
 
+        ExperimentalSessionLogger.Instance?.LogPhaseEnd("pause", 5, "PAUSE");
         Debug.Log("Fim do pause");
+    }
+
+    private void SendPhaseStart(int markerCode, string markerLabel, string phase, string note)
+    {
+        LSLMarkerOutlet.Instance?.SendPhaseMarker(markerCode, markerLabel);
+        ExperimentalSessionLogger.Instance?.LogPhaseStart(phase, markerCode, markerLabel, note);
+    }
+
+    private float GetCurrentTargetAngle()
+    {
+        var uiDois = GameUIDois.Instance;
+        if (uiDois != null && uiDois._anguloPerna != null && startGame != null && startGame.actTrials < uiDois._anguloPerna.Length)
+            return uiDois._anguloPerna[startGame.actTrials];
+
+        return 0f;
+    }
+
+    private float GetCurrentHoldTime()
+    {
+        var uiDois = GameUIDois.Instance;
+        if (uiDois != null && uiDois._temposPrecisao != null && uiDois._temposPrecisao.Count > 0)
+            return uiDois._temposPrecisao[Mathf.Min(startGame.actTrials, uiDois._temposPrecisao.Count - 1)];
+
+        return feedbackDuration;
+    }
+
+    private Texture2D LoadCueTexture(string path)
+    {
+        if (string.IsNullOrWhiteSpace(path) || !File.Exists(path))
+            return null;
+
+        if (cueTextureCache.TryGetValue(path, out Texture2D cached) && cached != null)
+            return cached;
+
+        byte[] bytes = File.ReadAllBytes(path);
+        var texture = new Texture2D(2, 2, TextureFormat.RGBA32, false);
+        if (!texture.LoadImage(bytes))
+        {
+            Destroy(texture);
+            return null;
+        }
+
+        cueTextureCache[path] = texture;
+        return texture;
     }
 }

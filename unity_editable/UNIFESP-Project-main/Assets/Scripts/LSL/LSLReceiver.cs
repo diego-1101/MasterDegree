@@ -112,6 +112,9 @@ public class LSLReceiver : MonoBehaviour
             double timestamp = inlet.pull_sample(sample, 0.0f);
             if (timestamp != 0.0)
             {
+                var experimentalLogger = ExperimentalSessionLogger.Instance;
+                if (experimentalLogger != null)
+                    experimentalLogger.RegisterClassifierSample(sample, timestamp);
                 ProcessData(sample);
             }
         }

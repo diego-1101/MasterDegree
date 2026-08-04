@@ -18,8 +18,8 @@ namespace StarterAssets
 		public bool analogMovement;
 
 		[Header("Mouse Cursor Settings")]
-		public bool cursorLocked = true;
-		public bool cursorInputForLook = true;
+		public bool cursorLocked = false;
+		public bool cursorInputForLook = false;
 
 		public PlayerManager CameraManager;
 		
@@ -30,6 +30,10 @@ namespace StarterAssets
 
 		private void Start()
 		{
+			cursorLocked = false;
+			cursorInputForLook = false;
+			SetCursorState(false);
+
 			if (!m_FocusActionsSetUp)
 			{
 #if UNITY_EDITOR
@@ -142,6 +146,7 @@ namespace StarterAssets
 				return;
 
 			Cursor.lockState = newState ? CursorLockMode.Locked : CursorLockMode.None;
+			Cursor.visible = !newState;
 		}
 	}
 	

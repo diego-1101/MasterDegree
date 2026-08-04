@@ -42,6 +42,9 @@ public class StartGame : MonoBehaviour
         GrazController.instance.ToggleCanvas(false);
         LSLReceiver.instance.StopInlet(); // Para LSL
         FindAnyObjectByType<PlayerController>().UpdateLegValues(0, 0, 0); // Reseta pernas
+        var experimentalLogger = ExperimentalSessionLogger.Instance;
+        if (experimentalLogger != null)
+            experimentalLogger.EndSession("RestartGame");
         _log.EndLog(); // Finaliza log
     }
 
