@@ -26,7 +26,7 @@ public class RaiseLeg : MonoBehaviour
         if (UIConfigs.instance == null)
             return;
 
-        if (GrazController.instance.OnFeedbackPhase || UIConfigs.instance.GetPhotoActive())
+        if (GrazController.instance.OnFeedbackPhase || UIConfigs.instance.GetPhotoActive() || FreeLslFamiliarizationController.IsAnyRunning)
             inputValue = this.inputValue;
         else
             inputValue = 0;

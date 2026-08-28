@@ -67,21 +67,24 @@ Purpose:
 
 LSL:
 
-- Requires classifier/angle stream input.
-- No formal GRAZ markers required, except optional session markers such as `free_control_start` and `free_control_end`.
+- Requires a classifier stream with two `float32` channels: discrete class code and probability.
+- Does not publish GRAZ markers and does not create baseline, fixation, cue, task, rest, trial order, or class markers.
 
 Subject view:
 
 - Environment and prosthesis visible.
-- Feedback can be continuous and playful.
+- The selected angle bars, lateral views, and ghost targets remain visible continuously until the operator presses `Esc`.
+- The operator can show the right leg, left leg, or both.
+- The green target/tolerance region is optional and can be hidden without hiding the angle bar or its red current-angle marker.
 
 Operator controls:
 
 - LSL stream name/type/source selection.
 - Connection status.
-- Input channel mapping.
-- Optional smoothing/dead zone.
-- Optional gravity/resistance.
+- Editable mapping from class code to leg and target angle, with the built-in codes retained as fallback.
+- Movement speed scaled by the received class probability.
+- Configurable gravity/fall speed and stale-input timeout.
+- Continuous visual feedback selection, per-side target, and tolerance.
 - Start/stop session.
 
 Logs:
@@ -122,9 +125,12 @@ Operator controls:
 - Editable class list.
 - Class-to-marker mapping with automatic default codes and manual overrides.
 - Cue image per class.
+- Global cue size and color/tint for the subject screen.
 - Description/notes per class.
 - Fixation image.
+- Fixation cross color and screen-relative size when no image is selected.
 - Rest/pause image.
+- Optional baseline, task, rest, success, and failure text with independent color and screen-relative size.
 - Timing for baseline, fixation, cue, task, feedback if enabled, pause, and breaks.
 - Randomization mode.
 - Random seed.
@@ -210,6 +216,7 @@ Operator controls:
 - Gravity/resistance.
 - Input smoothing.
 - Success/failure feedback settings.
+- Optional hold-time progress feedback during task, red while accumulating and green when the required hold time is reached.
 - Whether to continue after failure or repeat failed trials.
 
 Feedback metrics:
@@ -516,7 +523,7 @@ Operator-facing mode structure:
 | Mode | Current status | Intended route |
 | --- | --- | --- |
 | Captura de imagens | Button connected to the existing `PhotoMode.EntryPhotoMode()` route | Researcher-only camera/pose/screenshot workflow, no LSL required |
-| Controle livre LSL | UI shell prepared | Classifier/angle stream drives the prosthesis freely for subject familiarization |
+| Controle livre LSL | Implemented | Continuous classifier input drives either leg without any GRAZ phase; selected visual feedback remains visible until `Esc` |
 | GRAZ aquisicao | UI shell prepared | Clean GRAZ protocol for EEG/EMG acquisition, with cues, markers, shuffle, and logs, but no performance feedback |
 | GRAZ feedback/teste | Connected to the existing Experiment 2 start route | GRAZ-like cue/task sequence with LSL-driven leg feedback, target angle, tolerance, gravity, success criteria, and logs |
 
@@ -543,3 +550,52 @@ Prepared future actions in the menu:
 - Configure task blocks.
 
 These buttons are intentionally present before all routes exist, so the final menu shape is already understandable and can be incremented without redesigning it again.
+
+### 2026-08-10 - Free LSL familiarization implementation
+
+The second Experiment 2 route is independent from the GRAZ controller. It validates only the classifier inlet, visual feedback, movement parameters, and command map. It deliberately does not require subject/session fields, a log directory, marker outlet, timings, cue images, repetitions, shuffle, or a generated trial order.
+
+The free-control command map supports custom discrete codes while retaining the standard fallback codes (`1000`-`1004` for right/relax and `1010`-`1013` for left). A received probability scales the progressive movement speed; when the input becomes stale, both legs return toward zero at the configured fall speed.
+
+### 2026-08-07 - GRAZ feedback V1 control contract
+
+The first testable GRAZ feedback implementation uses two independent LSL
+streams with explicit directions:
+
+| Direction | Default name | Type | Payload |
+| --- | --- | --- | --- |
+| Classifier to Unity | `Simulated_Leg_Classifier` | `Classifications` | float32 `[class_code, probability]` |
+| Unity to recording tools | `Unity_GRAZ_Markers` | `Markers` | numeric phase/class marker |
+
+This V1 is deliberately experimental and may change after validation:
+
+- the classifier emits one discrete class at a time;
+- Unity drains queued LSL samples and keeps the latest valid prediction;
+- class codes are mapped to the enabled cue classes configured in the preset;
+- each class explicitly targets the right leg, left leg, or relaxed state;
+- probability (0-1) multiplies the configured maximum movement speed;
+- movement is progressive and occurs only during the `task` phase;
+- stale/unknown input and the relaxed class make the commanded angles return
+  toward zero using the configured gravity/fall speed;
+- success requires remaining continuously inside target +/- tolerance for the
+  class hold time before the fixed Task duration ends;
+- optional result feedback adds `success` or `failure` after Task and before
+  pause/rest.
+
+V1 phase markers:
+
+| Code | Phase/event |
+| --- | --- |
+| 1 | baseline |
+| 2 | fixation |
+| 3 | cue |
+| 4 | task |
+| 5 | pause/rest |
+| 6 | success result |
+| 7 | failure result |
+| 1000+ | configured class/cue codes |
+
+The menu lets the operator choose, before the run, whether the Task shows the
+0-90 gauge, lateral view, and translucent target leg. Because V1 executes one
+class at a time, only the current target leg is emphasized. Right and left
+classes use mirrored layouts to keep the subject view readable.

@@ -28,6 +28,16 @@ public class ExperimentalLogSessionConfig
     public float gravity;
     public float defaultTolerance;
     public float defaultHoldTime;
+    public string classificationPayload = "channel_0=class_code;channel_1=probability";
+    public string movementControlMode = "discrete_progressive_probability_speed";
+    public float maxMovementSpeed;
+    public float inputStaleSeconds;
+    public bool showFeedbackGauge;
+    public bool showFeedbackSideView;
+    public bool showGhostTarget;
+    public bool showResultFeedback;
+    public float successFeedbackDuration;
+    public float failureFeedbackDuration;
     public bool shuffleTrials;
     public string randomSeed = "";
 }
@@ -71,6 +81,11 @@ public class ExperimentalSessionLogger : MonoBehaviour
     private float currentHoldTime;
     private bool lastSuccess;
     private string lastResult = "";
+    private string currentTargetSide = "";
+    private float currentFeedbackAngle;
+    private float currentSignedError;
+    private bool currentWithinTarget;
+    private float currentAccumulatedHoldTime;
 
     private double lastLslTimestamp;
     private float[] lastClassifierSample = new float[0];
@@ -123,7 +138,7 @@ public class ExperimentalSessionLogger : MonoBehaviour
         sampleWriter = new StreamWriter(samplePath, false);
 
         eventWriter.WriteLine("event_index,wall_time,unity_realtime,session_elapsed,event_type,phase,trial_index,class_id,class_label,marker_code,marker_label,target_angle,tolerance,hold_time,success,result,note");
-        sampleWriter.WriteLine("sample_index,wall_time,unity_realtime,session_elapsed,source,phase,trial_index,class_id,class_label,marker_code,marker_label,left_input,right_input,left_angle,right_angle,target_angle,tolerance,hold_time,last_success,last_result,lsl_timestamp,lsl_ch0,lsl_ch1,lsl_ch2,lsl_payload");
+        sampleWriter.WriteLine("sample_index,wall_time,unity_realtime,session_elapsed,source,phase,trial_index,class_id,class_label,marker_code,marker_label,left_input,right_input,left_angle,right_angle,target_angle,tolerance,hold_time,target_side,feedback_angle,signed_error,absolute_error,within_target,accumulated_hold_time,last_success,last_result,lsl_timestamp,lsl_ch0,lsl_ch1,lsl_ch2,lsl_payload");
 
         File.WriteAllText(metadataPath, JsonUtility.ToJson(config, true));
 
@@ -177,6 +192,11 @@ public class ExperimentalSessionLogger : MonoBehaviour
         currentHoldTime = holdTime;
         lastSuccess = false;
         lastResult = "";
+        currentTargetSide = "";
+        currentFeedbackAngle = 0f;
+        currentSignedError = 0f;
+        currentWithinTarget = false;
+        currentAccumulatedHoldTime = 0f;
         LogEvent("trial_start", currentPhase, markerCode, markerCode.ToString(), trialIndex, classId, currentClassLabel, targetAngle, tolerance, holdTime, false, "", "");
     }
 
@@ -214,6 +234,15 @@ public class ExperimentalSessionLogger : MonoBehaviour
         lastSuccess = success;
         lastResult = result ?? "";
         LogEvent("result", currentPhase, currentMarkerCode, currentMarkerLabel, currentTrialIndex, currentClassId, currentClassLabel, currentTargetAngle, currentTolerance, currentHoldTime, success, lastResult, note);
+    }
+
+    public void RegisterFeedbackEvaluation(string targetSide, float feedbackAngle, float signedError, bool withinTarget, float accumulatedHoldTime)
+    {
+        currentTargetSide = targetSide ?? "";
+        currentFeedbackAngle = feedbackAngle;
+        currentSignedError = signedError;
+        currentWithinTarget = withinTarget;
+        currentAccumulatedHoldTime = accumulatedHoldTime;
     }
 
     private int eventIndex;
@@ -292,6 +321,12 @@ public class ExperimentalSessionLogger : MonoBehaviour
             F(currentTargetAngle),
             F(currentTolerance),
             F(currentHoldTime),
+            Csv(currentTargetSide),
+            F(currentFeedbackAngle),
+            F(currentSignedError),
+            F(Mathf.Abs(currentSignedError)),
+            currentWithinTarget ? "1" : "0",
+            F(currentAccumulatedHoldTime),
             lastSuccess ? "1" : "0",
             Csv(lastResult),
             F(lastLslTimestamp),

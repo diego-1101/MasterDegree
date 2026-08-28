@@ -75,7 +75,7 @@ public class PhotoMode : MonoBehaviour
         {
             UpdateReadouts();
         }
-        else if (feedbackOverlay != null)
+        else if (feedbackOverlay != null && !feedbackOverlay.RuntimeFeedbackActive)
         {
             feedbackOverlay.SetOverlayActive(false);
         }
@@ -269,6 +269,12 @@ public class PhotoMode : MonoBehaviour
             feedbackOverlay = GetComponent<PhotoModeFeedbackOverlay>();
         if (feedbackOverlay == null)
             feedbackOverlay = gameObject.AddComponent<PhotoModeFeedbackOverlay>();
+    }
+
+    public PhotoModeFeedbackOverlay GetFeedbackOverlay()
+    {
+        EnsureFeedbackOverlay();
+        return feedbackOverlay;
     }
 
     private void ApplyPhotoControlsLayout()

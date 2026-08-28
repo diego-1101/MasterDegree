@@ -51,12 +51,29 @@ public class PhotoModeFeedbackOverlay : MonoBehaviour
     private bool overlaysVisible;
     private bool controlsExpanded;
     private bool controlsAllowed = true;
+    private bool runtimeFeedbackActive;
+    private bool runtimeShowGauge = true;
+    private bool runtimeShowSideView = true;
+    private bool runtimeShowGhost = true;
+    private bool runtimeShowToleranceBand = true;
+    private bool continuousRuntimeLayout;
+    private bool runtimeAnglesOverrideActive;
+    private float runtimeLeftAngle;
+    private float runtimeRightAngle;
     private bool leftSideViewUsesRightLeg;
     private bool rightSideViewUsesRightLeg = true;
+
+    public bool RuntimeFeedbackActive => runtimeFeedbackActive;
 
     public void SetOverlayActive(bool active)
     {
         EnsureInitialized();
+
+        // O modo GRAZ controla o ciclo de vida do overlay durante a Task.
+        // Chamadas externas do modo foto nao podem oculta-lo nesse intervalo.
+        if (!active && runtimeFeedbackActive)
+            return;
+
         overlaysVisible = active;
         canvas.gameObject.SetActive(active);
 
@@ -78,6 +95,116 @@ public class PhotoModeFeedbackOverlay : MonoBehaviour
         controlsAllowed = visible;
         controlToggleButton.gameObject.SetActive(visible && overlaysVisible);
         controlPanel.gameObject.SetActive(visible && overlaysVisible && controlsExpanded);
+    }
+
+    public void BeginRuntimeFeedback(bool showGauge, bool showSideView, bool showGhost)
+    {
+        EnsureInitialized();
+        runtimeFeedbackActive = true;
+        runtimeShowGauge = showGauge;
+        runtimeShowSideView = showSideView;
+        runtimeShowGhost = showGhost;
+        runtimeShowToleranceBand = true;
+        continuousRuntimeLayout = false;
+        runtimeAnglesOverrideActive = true;
+        runtimeLeftAngle = 0f;
+        runtimeRightAngle = 0f;
+        canvas.overrideSorting = true;
+        canvas.sortingOrder = 20000;
+        SetOverlayActive(true);
+        SetControlsVisible(false);
+    }
+
+    public void BeginContinuousRuntimeFeedback(
+        bool showLeft,
+        bool showRight,
+        bool showGauge,
+        bool showSideView,
+        bool showGhost,
+        bool showToleranceBand)
+    {
+        EnsureInitialized();
+        runtimeFeedbackActive = true;
+        runtimeShowGauge = showGauge;
+        runtimeShowSideView = showSideView;
+        runtimeShowGhost = showGhost;
+        runtimeShowToleranceBand = showToleranceBand;
+        continuousRuntimeLayout = true;
+        runtimeAnglesOverrideActive = true;
+        runtimeLeftAngle = 0f;
+        runtimeRightAngle = 0f;
+
+        gaugeLeftToggle.SetIsOnWithoutNotify(showGauge && showLeft);
+        gaugeRightToggle.SetIsOnWithoutNotify(showGauge && showRight);
+        sideViewLeftToggle.SetIsOnWithoutNotify(showSideView && showLeft);
+        sideViewRightToggle.SetIsOnWithoutNotify(showSideView && showRight);
+        arcLeftToggle.SetIsOnWithoutNotify(showGhost && showLeft);
+        arcRightToggle.SetIsOnWithoutNotify(showGhost && showRight);
+
+        canvas.overrideSorting = true;
+        canvas.sortingOrder = 20000;
+        SetOverlayActive(true);
+        SetControlsVisible(false);
+        ApplyLayout();
+    }
+
+    public void SetContinuousRuntimeTargets(float leftTargetAngle, float leftTolerance, float rightTargetAngle, float rightTolerance)
+    {
+        if (!runtimeFeedbackActive)
+            return;
+
+        leftTargetAngleSlider.SetValueWithoutNotify(Mathf.Clamp(leftTargetAngle, MinAngle, MaxAngle));
+        leftToleranceSlider.SetValueWithoutNotify(Mathf.Max(0f, leftTolerance));
+        rightTargetAngleSlider.SetValueWithoutNotify(Mathf.Clamp(rightTargetAngle, MinAngle, MaxAngle));
+        rightToleranceSlider.SetValueWithoutNotify(Mathf.Max(0f, rightTolerance));
+        UpdateValues();
+    }
+
+    public void SetRuntimeTarget(GrazLegSide legSide, float targetAngle, float tolerance)
+    {
+        if (!runtimeFeedbackActive)
+            return;
+
+        bool relaxed = legSide == GrazLegSide.Relaxed;
+        bool leftActive = relaxed || legSide == GrazLegSide.Left;
+        bool rightActive = relaxed || legSide == GrazLegSide.Right;
+
+        gaugeLeftToggle.SetIsOnWithoutNotify(runtimeShowGauge && leftActive);
+        gaugeRightToggle.SetIsOnWithoutNotify(runtimeShowGauge && rightActive);
+        sideViewLeftToggle.SetIsOnWithoutNotify(runtimeShowSideView && leftActive);
+        sideViewRightToggle.SetIsOnWithoutNotify(runtimeShowSideView && rightActive);
+        arcLeftToggle.SetIsOnWithoutNotify(runtimeShowGhost && leftActive);
+        arcRightToggle.SetIsOnWithoutNotify(runtimeShowGhost && rightActive);
+
+        leftTargetAngleSlider.SetValueWithoutNotify(Mathf.Clamp(targetAngle, MinAngle, MaxAngle));
+        rightTargetAngleSlider.SetValueWithoutNotify(Mathf.Clamp(targetAngle, MinAngle, MaxAngle));
+        leftToleranceSlider.SetValueWithoutNotify(Mathf.Max(0f, tolerance));
+        rightToleranceSlider.SetValueWithoutNotify(Mathf.Max(0f, tolerance));
+        ApplyLayout();
+    }
+
+    public void SetRuntimeAngles(float leftAngle, float rightAngle)
+    {
+        if (!runtimeFeedbackActive)
+            return;
+
+        runtimeAnglesOverrideActive = true;
+        runtimeLeftAngle = Mathf.Clamp(leftAngle, MinAngle, MaxAngle);
+        runtimeRightAngle = Mathf.Clamp(rightAngle, MinAngle, MaxAngle);
+        UpdateValues();
+    }
+
+    public void EndRuntimeFeedback()
+    {
+        if (!initialized)
+            return;
+
+        runtimeFeedbackActive = false;
+        runtimeAnglesOverrideActive = false;
+        continuousRuntimeLayout = false;
+        runtimeShowToleranceBand = true;
+        canvas.sortingOrder = 120;
+        SetOverlayActive(false);
     }
 
     private void Awake()
@@ -106,7 +233,7 @@ public class PhotoModeFeedbackOverlay : MonoBehaviour
         if (!overlaysVisible)
             return;
 
-        if (owner != null && !owner.modeActive)
+        if (!runtimeFeedbackActive && owner != null && !owner.modeActive)
         {
             SetOverlayActive(false);
             return;
@@ -296,6 +423,16 @@ public class PhotoModeFeedbackOverlay : MonoBehaviour
         leftSideViewUsesRightLeg = true;
         rightSideViewUsesRightLeg = false;
 
+        if (continuousRuntimeLayout)
+        {
+            leftGauge.SetVisible(showLeftGauge);
+            rightGauge.SetVisible(showRightGauge);
+            leftSideView.SetVisible(showLeftView);
+            rightSideView.SetVisible(showRightView);
+            UpdateValues();
+            return;
+        }
+
         if (wantLeftGauge && wantRightGauge)
         {
             showLeftView = false;
@@ -346,7 +483,9 @@ public class PhotoModeFeedbackOverlay : MonoBehaviour
         float leftTolerance = leftToleranceSlider != null ? leftToleranceSlider.value : 5f;
         float rightTargetAngle = rightTargetAngleSlider != null ? rightTargetAngleSlider.value : 30f;
         float rightTolerance = rightToleranceSlider != null ? rightToleranceSlider.value : 5f;
-        Vector2 angles = GetCommandedAngles();
+        Vector2 angles = runtimeAnglesOverrideActive
+            ? new Vector2(runtimeLeftAngle, runtimeRightAngle)
+            : GetCommandedAngles();
 
         if (leftTargetAngleText != null)
             leftTargetAngleText.text = $"Alvo esquerdo: {leftTargetAngle:0} graus";
@@ -357,20 +496,22 @@ public class PhotoModeFeedbackOverlay : MonoBehaviour
         if (rightToleranceText != null)
             rightToleranceText.text = $"Tolerancia direita: +/- {rightTolerance:0} graus";
 
-        leftGauge.UpdateValues(angles.x, leftTargetAngle, leftTolerance);
-        rightGauge.UpdateValues(angles.y, rightTargetAngle, rightTolerance);
+        leftGauge.UpdateValues(angles.x, leftTargetAngle, leftTolerance, runtimeShowToleranceBand);
+        rightGauge.UpdateValues(angles.y, rightTargetAngle, rightTolerance, runtimeShowToleranceBand);
         leftSideView.UpdateCamera(
             leftSideViewUsesRightLeg ? angles.y : angles.x,
             leftSideViewUsesRightLeg ? rightTargetAngle : leftTargetAngle,
             leftSideViewUsesRightLeg ? rightTolerance : leftTolerance,
             leftSideViewUsesRightLeg ? arcRightToggle != null && arcRightToggle.isOn : arcLeftToggle != null && arcLeftToggle.isOn,
-            leftSideViewUsesRightLeg);
+            leftSideViewUsesRightLeg,
+            runtimeShowToleranceBand);
         rightSideView.UpdateCamera(
             rightSideViewUsesRightLeg ? angles.y : angles.x,
             rightSideViewUsesRightLeg ? rightTargetAngle : leftTargetAngle,
             rightSideViewUsesRightLeg ? rightTolerance : leftTolerance,
             rightSideViewUsesRightLeg ? arcRightToggle != null && arcRightToggle.isOn : arcLeftToggle != null && arcLeftToggle.isOn,
-            rightSideViewUsesRightLeg);
+            rightSideViewUsesRightLeg,
+            runtimeShowToleranceBand);
 
         leftSideView.UpdateGhostTarget(rightTargetAngle, arcRightToggle != null && arcRightToggle.isOn, true);
         rightSideView.UpdateGhostTarget(leftTargetAngle, arcLeftToggle != null && arcLeftToggle.isOn, false);
@@ -561,7 +702,7 @@ public class PhotoModeFeedbackOverlay : MonoBehaviour
             root.gameObject.SetActive(visible);
         }
 
-        public void UpdateValues(float currentAngle, float targetAngle, float tolerance)
+        public void UpdateValues(float currentAngle, float targetAngle, float tolerance, bool showTargetArea)
         {
             if (!root.gameObject.activeSelf)
                 return;
@@ -574,6 +715,7 @@ public class PhotoModeFeedbackOverlay : MonoBehaviour
             float yMax = AngleToY(targetMax);
             float yCurrent = AngleToY(currentAngle);
 
+            targetArea.gameObject.SetActive(showTargetArea);
             Anchor(targetArea, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), new Vector2(0f, (yMin + yMax) * 0.5f), new Vector2(76f, Mathf.Max(8f, yMax - yMin)));
             Anchor(currentLine, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), new Vector2(0f, yCurrent), new Vector2(88f, 5f));
             title.text = $"{label}: {currentAngle:0} graus";
@@ -652,7 +794,7 @@ public class PhotoModeFeedbackOverlay : MonoBehaviour
                 camera.enabled = active;
         }
 
-        public void UpdateCamera(float angle, float targetAngle, float tolerance, bool showArc, bool useRightLeg)
+        public void UpdateCamera(float angle, float targetAngle, float tolerance, bool showArc, bool useRightLeg, bool showTargetArea)
         {
             if (!root.gameObject.activeSelf || camera == null)
                 return;
@@ -660,7 +802,7 @@ public class PhotoModeFeedbackOverlay : MonoBehaviour
             PositionCamera();
 
             arc.gameObject.SetActive(showArc);
-            targetArc.gameObject.SetActive(showArc);
+            targetArc.gameObject.SetActive(showArc && showTargetArea);
 
             if (showArc)
             {
