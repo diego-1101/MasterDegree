@@ -8,6 +8,8 @@ public struct ClassificationPrediction
 {
     public int classCode;
     public float probability;
+    public long predictionId;
+    public int trialId;
     public double lslTimestamp;
     public float unityReceivedTime;
     public long sequence;
@@ -40,6 +42,11 @@ public class ClassificationLSLReceiver : MonoBehaviour
     public long ReceivedSamplesCount => receivedSamplesCount;
     public float SignalAge => hasPrediction ? Mathf.Max(0f, Time.realtimeSinceStartup - latestPrediction.unityReceivedTime) : float.PositiveInfinity;
     public bool HasFreshSignal => IsConnected && hasPrediction && SignalAge <= staleAfterSeconds;
+
+    private void Awake()
+    {
+        UnityLatencyAckOutlet.Instance?.Publish();
+    }
 
     public void Configure(string newStreamName, string newStreamType, float newStaleAfterSeconds)
     {
@@ -154,6 +161,8 @@ public class ClassificationLSLReceiver : MonoBehaviour
             {
                 classCode = Mathf.RoundToInt(sample[0]),
                 probability = Mathf.Clamp01(sample[1]),
+                predictionId = sample.Length > 2 ? (long)Mathf.Round(sample[2]) : receivedSamplesCount,
+                trialId = sample.Length > 3 ? Mathf.RoundToInt(sample[3]) : 0,
                 lslTimestamp = timestamp,
                 unityReceivedTime = Time.realtimeSinceStartup,
                 sequence = receivedSamplesCount
@@ -161,6 +170,7 @@ public class ClassificationLSLReceiver : MonoBehaviour
             hasPrediction = true;
 
             ExperimentalSessionLogger.Instance?.RegisterClassifierSample(sample, timestamp);
+            UnityLatencyAckOutlet.Instance?.SendReceived(latestPrediction);
             PredictionReceived?.Invoke(latestPrediction);
             drained++;
         }

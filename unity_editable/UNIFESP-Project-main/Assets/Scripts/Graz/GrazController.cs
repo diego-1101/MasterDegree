@@ -119,6 +119,7 @@ public class GrazController : MonoBehaviour
     private readonly Dictionary<int, GrazAcquisitionTrial> feedbackClassMap = new Dictionary<int, GrazAcquisitionTrial>();
     private float feedbackLeftCommandAngle;
     private float feedbackRightCommandAngle;
+    private long lastLatencyAppliedPredictionId = -1;
 
     private Canvas subjectCanvas;
     private RawImage subjectBackground;
@@ -203,6 +204,7 @@ public class GrazController : MonoBehaviour
         feedbackOverlay = overlay;
         acquisitionAbortedCallback = onAborted;
         activeProtocolLogName = "graz_feedback";
+        lastLatencyAppliedPredictionId = -1;
         showAbortConfirmation = false;
         RestoreTimeScaleAfterAbortPrompt();
         acquisitionCoroutine = StartCoroutine(GrazFeedbackProtocol(trials, commandClasses, onCompleted));
@@ -765,6 +767,34 @@ public class GrazController : MonoBehaviour
         }
 
         ApplyCommandAnglesToPlayer();
+        AcknowledgeLatestPredictionApplied();
+    }
+
+    private void AcknowledgeLatestPredictionApplied()
+    {
+        if (feedbackReceiver == null || !feedbackReceiver.HasPrediction)
+            return;
+
+        ClassificationPrediction prediction = feedbackReceiver.LatestPrediction;
+        long predictionId = prediction.predictionId > 0 ? prediction.predictionId : prediction.sequence;
+        if (predictionId == lastLatencyAppliedPredictionId)
+            return;
+
+        lastLatencyAppliedPredictionId = predictionId;
+        UnityLatencyAckOutlet.Instance?.SendApplied(
+            prediction,
+            feedbackLeftCommandAngle,
+            feedbackRightCommandAngle);
+        StartCoroutine(SendLatencyFrameAck(prediction, feedbackLeftCommandAngle, feedbackRightCommandAngle));
+    }
+
+    private IEnumerator SendLatencyFrameAck(
+        ClassificationPrediction prediction,
+        float leftAngle,
+        float rightAngle)
+    {
+        yield return new WaitForEndOfFrame();
+        UnityLatencyAckOutlet.Instance?.SendFramePresented(prediction, leftAngle, rightAngle);
     }
 
     private bool TryResolveFeedbackCommand(int classCode, out GrazAcquisitionTrial command)
