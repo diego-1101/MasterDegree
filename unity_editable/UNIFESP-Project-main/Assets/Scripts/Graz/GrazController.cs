@@ -110,6 +110,8 @@ public class GrazController : MonoBehaviour
     private RealtimeLog realtimeLog; // Sistema de log
     private StartGame startGame; // Controlador do jogo
     private int globalTrialIndex;
+    public int CurrentTrial => globalTrialIndex;
+    public string CurrentPhase { get; private set; } = "configuração";
     private readonly Dictionary<string, Texture2D> cueTextureCache = new Dictionary<string, Texture2D>();
     private readonly GrazStimulusSettings stimulusSettings = new GrazStimulusSettings();
     private bool useSubjectStimulusDisplay;
@@ -257,6 +259,7 @@ public class GrazController : MonoBehaviour
         }
 
         inGrazProtocol = false;
+        CurrentPhase = "encerrado";
         OnFeedbackPhase = false;
         indicationImage.enabled = false;
         cueImageDirection.enabled = false;
@@ -276,6 +279,7 @@ public class GrazController : MonoBehaviour
         acquisitionCoroutine = null;
 
         inGrazProtocol = false;
+        CurrentPhase = "interrompido";
         OnFeedbackPhase = false;
         useSubjectStimulusDisplay = false;
         showAbortConfirmation = false;
@@ -1102,6 +1106,7 @@ public class GrazController : MonoBehaviour
 
     private void SendPhaseStart(int markerCode, string markerLabel, string phase, string note)
     {
+        CurrentPhase = phase;
         LSLMarkerOutlet.Instance?.SendPhaseMarker(markerCode, markerLabel);
         ExperimentalSessionLogger.Instance?.LogPhaseStart(phase, markerCode, markerLabel, note);
     }

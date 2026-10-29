@@ -1,8 +1,10 @@
+using System;
 using LSL;
 using UnityEngine;
 
 public class LSLMarkerOutlet : MonoBehaviour
 {
+    public static event Action<int, string> MarkerSent;
     private static LSLMarkerOutlet _instance;
 
     public static LSLMarkerOutlet Instance
@@ -92,6 +94,7 @@ public class LSLMarkerOutlet : MonoBehaviour
         LastMarkerLabel = string.IsNullOrWhiteSpace(markerLabel) ? markerCode.ToString() : markerLabel;
         LastMarkerUnityTime = Time.realtimeSinceStartup;
         SentMarkersCount++;
+        MarkerSent?.Invoke(LastMarkerCode, LastMarkerLabel);
     }
 
     private void EnsureOutlet()

@@ -20,6 +20,10 @@ public class Experiment2RedesignedMenu : MonoBehaviour
     }
 
     private GameUIDois ui;
+    private SecondDisplayPresenter secondDisplay;
+    private bool secondDisplayEnabled;
+    private bool initializingSecondDisplay;
+    private int selectedMonitor = 1;
     private ExperimentMode activeMode = ExperimentMode.Capture;
     private Vector2 mainScroll;
     private Vector2 actionScroll;
@@ -131,16 +135,54 @@ public class Experiment2RedesignedMenu : MonoBehaviour
     private const int MarkerTestCode = 9999;
     private const BindingFlags PrivateInstance = BindingFlags.Instance | BindingFlags.NonPublic;
     private const string CuePresetPrefsKey = "Experiment2.GrazCuePreset";
-    private const int CurrentPresetSchemaVersion = 4;
+    private const string SecondDisplayPrefsKey = "Experiment2.SecondDisplayEnabled";
+    private const string SecondDisplayMonitorPrefsKey = "Experiment2.SecondDisplayMonitor";
+    private const int CurrentPresetSchemaVersion = 5;
 
     public void Initialize(GameUIDois owner)
     {
         ui = owner;
+        secondDisplay = owner.GetComponent<SecondDisplayPresenter>();
+        if (secondDisplay == null)
+            secondDisplay = owner.gameObject.AddComponent<SecondDisplayPresenter>();
+        initializingSecondDisplay = true;
+        bool persistedSecondDisplay = PlayerPrefs.GetInt(SecondDisplayPrefsKey, 0) != 0;
+        selectedMonitor = PlayerPrefs.GetInt(SecondDisplayMonitorPrefsKey, 1);
         HideLegacyConfigPanel();
         PullValuesFromLegacyFields();
         LoadCuePresetFromPrefs(false);
+        initializingSecondDisplay = false;
+        SetSecondDisplayEnabled(persistedSecondDisplay);
         EnsureDefaultCueClasses();
         EnsureDefaultFreeLslCommands();
+    }
+
+    private void SetSecondDisplayEnabled(bool enabledForParticipant)
+    {
+        secondDisplayEnabled = enabledForParticipant;
+        if (initializingSecondDisplay)
+            return;
+
+        PlayerPrefs.SetInt(SecondDisplayPrefsKey, secondDisplayEnabled ? 1 : 0);
+        PlayerPrefs.Save();
+        if (!secondDisplayEnabled)
+        {
+            secondDisplay?.Close();
+            status = "Segunda tela desligada.";
+            return;
+        }
+
+        if (secondDisplay == null || !secondDisplay.Open(selectedMonitor))
+            status = Application.platform == RuntimePlatform.WindowsEditor
+                ? "A segunda janela requer um build Windows com dois monitores."
+                : "Sem segundo monitor disponivel: conecte outro monitor antes de iniciar.";
+        else
+            status = "Janela do participante aberta. Escolha o monitor ou arraste pelo titulo.";
+    }
+
+    public void OnSecondDisplayClosedByUser()
+    {
+        SetSecondDisplayEnabled(false);
     }
 
     private void HideLegacyConfigPanel()
@@ -170,6 +212,7 @@ public class Experiment2RedesignedMenu : MonoBehaviour
         HideLegacyConfigPanel();
         PullValuesFromLegacyFields();
         status = "Pronto para configurar";
+        SetSecondDisplayEnabled(secondDisplayEnabled);
     }
 
     private void PullValuesFromLegacyFields()
@@ -229,6 +272,7 @@ public class Experiment2RedesignedMenu : MonoBehaviour
     private class EditableCuePresetData
     {
         public int schemaVersion;
+        public bool secondDisplayEnabled;
         public string presetName;
         public string subjectId;
         public string sessionId;
@@ -532,6 +576,28 @@ public class Experiment2RedesignedMenu : MonoBehaviour
 
         GUILayout.Space(10f);
         GUILayout.Label("Escolha primeiro o modo. Depois configure os blocos que aparecem no centro.", bodyStyle);
+        GUILayout.Space(12f);
+        bool requestedSecondDisplay = GUILayout.Toggle(secondDisplayEnabled,
+            new GUIContent("Segunda tela do participante", "Abre uma janela independente para o participante. Requer dois monitores em um build Windows; escolha o monitor abaixo ou arraste a janela pelo titulo."), toggleStyle);
+        if (requestedSecondDisplay != secondDisplayEnabled)
+            SetSecondDisplayEnabled(requestedSecondDisplay);
+        var monitors = SecondDisplayWindow.GetMonitors();
+        if (secondDisplayEnabled)
+        {
+            for (int i = 0; i < monitors.Length; i++)
+            {
+                int monitor = i;
+                if (TooltipButton((selectedMonitor == i ? "● " : "○ ") + "Monitor " + (i + 1),
+                    "Posiciona a janela no monitor escolhido. Tambem e possivel arrasta-la com o mouse.", buttonStyle, GUILayout.Height(28f)))
+                {
+                    selectedMonitor = monitor;
+                    PlayerPrefs.SetInt(SecondDisplayMonitorPrefsKey, selectedMonitor);
+                    PlayerPrefs.Save();
+                    if (secondDisplay != null && !secondDisplay.Open(selectedMonitor))
+                        status = "Nao foi possivel abrir a janela do participante.";
+                }
+            }
+        }
         GUILayout.FlexibleSpace();
 
         if (TooltipButton("Voltar aos experimentos", "Fecha o menu do Experimento 2 e volta para a tela de escolha entre Experimento 1 e Experimento 2.", buttonStyle, GUILayout.Height(42f)))
@@ -1584,6 +1650,7 @@ public class Experiment2RedesignedMenu : MonoBehaviour
         return new EditableCuePresetData
         {
             schemaVersion = CurrentPresetSchemaVersion,
+            secondDisplayEnabled = secondDisplayEnabled,
             presetName = presetNameText,
             subjectId = subjectIdText,
             sessionId = sessionIdText,
@@ -1657,6 +1724,7 @@ public class Experiment2RedesignedMenu : MonoBehaviour
 
     private void ApplyPresetData(EditableCuePresetData data)
     {
+        SetSecondDisplayEnabled(data.schemaVersion >= 5 && data.secondDisplayEnabled);
         presetNameText = string.IsNullOrWhiteSpace(data.presetName) ? presetNameText : data.presetName;
         subjectIdText = string.IsNullOrWhiteSpace(data.subjectId) ? subjectIdText : data.subjectId;
         sessionIdText = string.IsNullOrWhiteSpace(data.sessionId) ? sessionIdText : data.sessionId;
@@ -1745,7 +1813,7 @@ public class Experiment2RedesignedMenu : MonoBehaviour
         if (data.classes != null && data.classes.Count > 0)
         {
             cueClasses = data.classes;
-            if (data.schemaVersion < CurrentPresetSchemaVersion)
+            if (data.schemaVersion < 4)
             {
                 foreach (var cueClass in cueClasses)
                 {
@@ -2501,6 +2569,11 @@ public class Experiment2RedesignedMenu : MonoBehaviour
 
     private void StartSelectedMode()
     {
+        if (secondDisplayEnabled && (secondDisplay == null || !secondDisplay.IsOpen))
+        {
+            status = "Segunda tela ativada: conecte dois monitores e abra o build Windows antes de iniciar.";
+            return;
+        }
         if (activeMode == ExperimentMode.FreeLsl)
         {
             StartFreeLslMode();
@@ -2513,6 +2586,8 @@ public class Experiment2RedesignedMenu : MonoBehaviour
 
         if (activeMode == ExperimentMode.Capture)
         {
+            if (secondDisplayEnabled)
+                secondDisplay.SetWaiting();
             var photoMode = ui.GetComponent<PhotoMode>();
             if (photoMode != null)
             {
@@ -2570,6 +2645,9 @@ public class Experiment2RedesignedMenu : MonoBehaviour
         status = "Controle livre LSL em andamento. Pressione ESC para sair.";
         enabled = false;
 
+        if (secondDisplayEnabled)
+            secondDisplay.SetFreeLsl();
+
         controller.StartMode(
             receiver,
             overlay,
@@ -2599,6 +2677,8 @@ public class Experiment2RedesignedMenu : MonoBehaviour
 
     private void OnFreeLslStopped()
     {
+        if (secondDisplayEnabled)
+            secondDisplay.SetWaiting();
         Cursor.lockState = CursorLockMode.None;
         Cursor.visible = true;
         enabled = true;
@@ -2646,7 +2726,10 @@ public class Experiment2RedesignedMenu : MonoBehaviour
             return;
         }
 
-        graz.StartAcquisitionProtocol(BuildAcquisitionTrials(), OnGrazAcquisitionFinished, OnGrazAcquisitionAborted);
+        var trials = BuildAcquisitionTrials();
+        if (secondDisplayEnabled)
+            secondDisplay.SetGraz(trials.Count);
+        graz.StartAcquisitionProtocol(trials, OnGrazAcquisitionFinished, OnGrazAcquisitionAborted);
     }
 
     private void StartGrazFeedback()
@@ -2697,8 +2780,11 @@ public class Experiment2RedesignedMenu : MonoBehaviour
         enabled = false;
         status = "GRAZ feedback em andamento.";
 
+        var trials = BuildAcquisitionTrials();
+        if (secondDisplayEnabled)
+            secondDisplay.SetGraz(trials.Count);
         graz.StartFeedbackProtocol(
-            BuildAcquisitionTrials(),
+            trials,
             BuildFeedbackCommandClasses(),
             receiver,
             BuildFeedbackRuntimeSettings(),
@@ -2806,24 +2892,32 @@ public class Experiment2RedesignedMenu : MonoBehaviour
 
     private void OnGrazAcquisitionFinished()
     {
+        if (secondDisplayEnabled)
+            secondDisplay.SetCompleted(false);
         RestoreAfterGrazAcquisition();
         status = "Aquisicao GRAZ concluida. Log salvo.";
     }
 
     private void OnGrazAcquisitionAborted()
     {
+        if (secondDisplayEnabled)
+            secondDisplay.SetCompleted(true);
         RestoreAfterGrazAcquisition();
         status = "Aquisicao GRAZ interrompida. Log parcial salvo.";
     }
 
     private void OnGrazFeedbackFinished()
     {
+        if (secondDisplayEnabled)
+            secondDisplay.SetCompleted(false);
         RestoreAfterGrazAcquisition();
         status = "GRAZ feedback concluido. Log de desempenho salvo.";
     }
 
     private void OnGrazFeedbackAborted()
     {
+        if (secondDisplayEnabled)
+            secondDisplay.SetCompleted(true);
         RestoreAfterGrazAcquisition();
         status = "GRAZ feedback interrompido. Log parcial salvo.";
     }
@@ -2873,6 +2967,7 @@ public class Experiment2RedesignedMenu : MonoBehaviour
 
     private async void ReturnToExperimentSelection()
     {
+        secondDisplay?.Close();
         HideLegacyConfigPanel();
 
         if (ui != null)
