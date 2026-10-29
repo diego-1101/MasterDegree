@@ -493,6 +493,9 @@ public class Experiment2RedesignedMenu : MonoBehaviour
 
         try
         {
+            // IMGUI can retain the previous control's tooltip between events.
+            // Start each pass without a tooltip so leaving a control hides it.
+            GUI.tooltip = string.Empty;
             DrawScaledMenu();
             DrawTooltip();
         }
@@ -538,7 +541,7 @@ public class Experiment2RedesignedMenu : MonoBehaviour
         GUILayout.Label("Menu do operador para configurar captura, LSL, GRAZ de aquisicao e GRAZ com feedback.", subtitleStyle);
         GUILayout.EndVertical();
         GUILayout.FlexibleSpace();
-        DrawStatusBox(GUILayout.Width(520f), GUILayout.Height(64f));
+        DrawStatusBox(GUILayout.Width(520f), GUILayout.Height(78f));
         GUILayout.EndHorizontal();
     }
 
@@ -588,7 +591,7 @@ public class Experiment2RedesignedMenu : MonoBehaviour
             {
                 int monitor = i;
                 if (TooltipButton((selectedMonitor == i ? "● " : "○ ") + "Monitor " + (i + 1),
-                    "Posiciona a janela no monitor escolhido. Tambem e possivel arrasta-la com o mouse.", buttonStyle, GUILayout.Height(28f)))
+                    "Posiciona a janela no monitor escolhido. Tambem e possivel arrasta-la com o mouse.", buttonStyle, GUILayout.Height(44f)))
                 {
                     selectedMonitor = monitor;
                     PlayerPrefs.SetInt(SecondDisplayMonitorPrefsKey, selectedMonitor);
@@ -600,7 +603,7 @@ public class Experiment2RedesignedMenu : MonoBehaviour
         }
         GUILayout.FlexibleSpace();
 
-        if (TooltipButton("Voltar aos experimentos", "Fecha o menu do Experimento 2 e volta para a tela de escolha entre Experimento 1 e Experimento 2.", buttonStyle, GUILayout.Height(42f)))
+        if (TooltipButton("Voltar aos experimentos", "Fecha o menu do Experimento 2 e volta para a tela de escolha entre Experimento 1 e Experimento 2.", buttonStyle, GUILayout.Height(50f)))
         {
             ReturnToExperimentSelection();
             GUIUtility.ExitGUI();
@@ -608,7 +611,7 @@ public class Experiment2RedesignedMenu : MonoBehaviour
 
         GUILayout.Space(6f);
 
-        if (TooltipButton("Mostrar menu antigo", "Abre o menu original da empresa. Use apenas para comparar ou acessar alguma rota antiga que ainda nao migramos.", buttonStyle, GUILayout.Height(42f)))
+        if (TooltipButton("Mostrar menu antigo", "Abre o menu original da empresa. Use apenas para comparar ou acessar alguma rota antiga que ainda nao migramos.", buttonStyle, GUILayout.Height(50f)))
             RestoreLegacyPanel();
         GUILayout.EndVertical();
     }
@@ -616,7 +619,7 @@ public class Experiment2RedesignedMenu : MonoBehaviour
     private void ModeButton(ExperimentMode mode, string title, string subtitle)
     {
         var style = activeMode == mode ? selectedButtonStyle : buttonStyle;
-        if (TooltipButton(title + "\n" + subtitle, GetModeTooltip(mode), style, GUILayout.Height(68f)))
+        if (TooltipButton(title + "\n" + subtitle, GetModeTooltip(mode), style, GUILayout.Height(80f)))
         {
             activeMode = mode;
             mainScroll = Vector2.zero;
@@ -678,7 +681,7 @@ public class Experiment2RedesignedMenu : MonoBehaviour
     {
         Card("Modo camera", "Ferramenta do experimentador, independente de LSL.");
         GUILayout.Label("Use este modo para gerar imagens das cues. O print nao precisa existir antes do GRAZ; depois a imagem sera escolhida no editor de classes.", bodyStyle);
-        if (TooltipButton("Abrir modo camera", "Entra no modo de captura para ajustar cameras, posicoes das pernas, feedback visual e tirar prints das cues.", buttonStyle, GUILayout.Height(40f)))
+        if (TooltipButton("Abrir modo camera", "Entra no modo de captura para ajustar cameras, posicoes das pernas, feedback visual e tirar prints das cues.", buttonStyle, GUILayout.Height(48f)))
         {
             var photoMode = ui.GetComponent<PhotoMode>();
             if (photoMode != null)
@@ -711,7 +714,7 @@ public class Experiment2RedesignedMenu : MonoBehaviour
     {
         Card("Feedback visual continuo", "Escolha os lados e os elementos que ficarao visiveis durante toda a familiarizacao.");
         GUILayout.Label("Lados exibidos", fieldLabelStyle);
-        freeLslDisplaySides = GUILayout.Toolbar(freeLslDisplaySides, new[] { "Direita", "Esquerda", "Ambas" }, toolbarStyle, GUILayout.Height(38f));
+        freeLslDisplaySides = GUILayout.Toolbar(freeLslDisplaySides, new[] { "Direita", "Esquerda", "Ambas" }, toolbarStyle, GUILayout.Height(46f));
 
         GUILayout.Space(6f);
         freeLslShowGauge = GUILayout.Toggle(freeLslShowGauge, "Barra de angulo 0-90", toggleStyle);
@@ -756,9 +759,9 @@ public class Experiment2RedesignedMenu : MonoBehaviour
         GUILayout.Label("Os codigos padrao continuam como fallback. Linhas personalizadas com o mesmo codigo substituem o padrao neste modo.", bodyStyle);
 
         GUILayout.BeginHorizontal();
-        if (TooltipButton("Adicionar comando", "Adiciona um novo codigo discreto para controlar uma perna e um angulo.", buttonStyle, GUILayout.Height(36f)))
+        if (TooltipButton("Adicionar comando", "Adiciona um novo codigo discreto para controlar uma perna e um angulo.", buttonStyle, GUILayout.Height(44f)))
             freeLslCommands.Add(new FreeLslCommandDefinition(1020 + freeLslCommands.Count, GrazLegSide.Right, 45f));
-        if (TooltipButton("Restaurar codigos padrao", "Restaura os comandos 1000-1004 e 1010-1013.", buttonStyle, GUILayout.Height(36f)))
+        if (TooltipButton("Restaurar codigos padrao", "Restaura os comandos 1000-1004 e 1010-1013.", buttonStyle, GUILayout.Height(44f)))
             RestoreDefaultFreeLslCommands();
         GUILayout.EndHorizontal();
 
@@ -768,14 +771,14 @@ public class Experiment2RedesignedMenu : MonoBehaviour
             FreeLslCommandDefinition command = freeLslCommands[i];
             GUILayout.BeginHorizontal(GUI.skin.box);
             command.enabled = GUILayout.Toggle(command.enabled, "", toggleStyle, GUILayout.Width(26f));
-            GUILayout.Label("Codigo", fieldLabelStyle, GUILayout.Width(58f));
-            command.code = GUILayout.TextField(command.code, textFieldStyle, GUILayout.Width(76f), GUILayout.Height(30f));
+            GUILayout.Label("Codigo", fieldLabelStyle, GUILayout.Width(76f));
+            command.code = GUILayout.TextField(command.code, textFieldStyle, GUILayout.Width(76f), GUILayout.Height(38f));
             int sideIndex = command.legSide == GrazLegSide.Right ? 0 : command.legSide == GrazLegSide.Left ? 1 : 2;
-            sideIndex = GUILayout.Toolbar(sideIndex, new[] { "D", "E", "Relaxar" }, toolbarStyle, GUILayout.Width(210f), GUILayout.Height(30f));
+            sideIndex = GUILayout.Toolbar(sideIndex, new[] { "D", "E", "Relaxar" }, toolbarStyle, GUILayout.Width(246f), GUILayout.Height(38f));
             command.legSide = sideIndex == 0 ? GrazLegSide.Right : sideIndex == 1 ? GrazLegSide.Left : GrazLegSide.Relaxed;
-            GUILayout.Label("Angulo", fieldLabelStyle, GUILayout.Width(58f));
-            command.targetAngle = GUILayout.TextField(command.targetAngle, textFieldStyle, GUILayout.Width(58f), GUILayout.Height(30f));
-            if (TooltipButton("X", "Remove este comando do mapeamento do controle livre.", buttonStyle, GUILayout.Width(32f), GUILayout.Height(30f)))
+            GUILayout.Label("Angulo", fieldLabelStyle, GUILayout.Width(76f));
+            command.targetAngle = GUILayout.TextField(command.targetAngle, textFieldStyle, GUILayout.Width(76f), GUILayout.Height(38f));
+            if (TooltipButton("X", "Remove este comando do mapeamento do controle livre.", buttonStyle, GUILayout.Width(32f), GUILayout.Height(38f)))
             {
                 freeLslCommands.RemoveAt(i);
                 GUILayout.EndHorizontal();
@@ -812,7 +815,7 @@ public class Experiment2RedesignedMenu : MonoBehaviour
         runText = Field("Run", runText, "indice do run atual");
         UpdatePlannedTrialsText();
         GUILayout.BeginHorizontal();
-        GUILayout.Label("Trials planejados", fieldLabelStyle, GUILayout.Width(150f));
+        GUILayout.Label("Trials planejados", fieldLabelStyle, GUILayout.Width(190f));
         GUILayout.Label(trialsText + " (" + CountActiveCueClasses() + " classes x " + ParsePositiveInt(repetitionsPerClassText, 1) + " repeticoes/classe)", bodyStyle);
         GUILayout.EndHorizontal();
         if (classifier)
@@ -834,14 +837,14 @@ public class Experiment2RedesignedMenu : MonoBehaviour
         DrawMarkerTestPanel();
 
         GUILayout.BeginHorizontal();
-        if (TooltipButton("Aplicar campos", "Aplica sujeito, sessao, run, streams LSL e configuracao do logger. Tambem cria/configura o outlet de markers.", buttonStyle, GUILayout.Height(36f)))
+        if (TooltipButton("Aplicar campos", "Aplica sujeito, sessao, run, streams LSL e configuracao do logger. Tambem cria/configura o outlet de markers.", buttonStyle, GUILayout.Height(44f)))
             ApplySessionFields();
-        if (TooltipButton("Escolher log", "Escolhe a pasta onde os arquivos de log da sessao serao salvos.", buttonStyle, GUILayout.Height(36f)))
+        if (TooltipButton("Escolher log", "Escolhe a pasta onde os arquivos de log da sessao serao salvos.", buttonStyle, GUILayout.Height(44f)))
         {
             StartCoroutine(SelectLogDirectoryCoroutine());
             GUIUtility.ExitGUI();
         }
-        if (TooltipButton("Carregar JSON antigo", "Carrega configuracoes no formato antigo usado pelo menu original da empresa.", buttonStyle, GUILayout.Height(36f)))
+        if (TooltipButton("Carregar JSON antigo", "Carrega configuracoes no formato antigo usado pelo menu original da empresa.", buttonStyle, GUILayout.Height(44f)))
             ui.CarregarInfos();
         GUILayout.EndHorizontal();
     }
@@ -855,7 +858,7 @@ public class Experiment2RedesignedMenu : MonoBehaviour
         taskText = Field("Task/feedback (s)", taskText, "execucao ou imaginacao");
         minPauseText = Field("Pausa min (s)", minPauseText, "pausa randomizada minima");
         maxPauseText = Field("Pausa max (s)", maxPauseText, "pausa randomizada maxima");
-        if (TooltipButton("Aplicar tempos", "Salva os tempos de baseline, fixation, cue, task/feedback e pausa no controlador GRAZ.", buttonStyle, GUILayout.Height(36f)))
+        if (TooltipButton("Aplicar tempos", "Salva os tempos de baseline, fixation, cue, task/feedback e pausa no controlador GRAZ.", buttonStyle, GUILayout.Height(44f)))
             ApplyTimingFields();
     }
 
@@ -886,9 +889,9 @@ public class Experiment2RedesignedMenu : MonoBehaviour
         DrawPhaseContentEditor("Pausa/rest", ref pauseImagePath, ref pauseStimulusText, ref pauseTextColor, ref pauseTextSizePercentText, "Selecionar imagem pausa", value => pauseImagePath = value);
 
         GUILayout.BeginHorizontal();
-        if (TooltipButton("Aplicar tela do sujeito", "Aplica fundo, cor/imagem de fixation, tamanho da cue e conteudos opcionais dos blocos na tela limpa do sujeito.", buttonStyle, GUILayout.Height(36f)))
+        if (TooltipButton("Aplicar tela do sujeito", "Aplica fundo, cor/imagem de fixation, tamanho da cue e conteudos opcionais dos blocos na tela limpa do sujeito.", buttonStyle, GUILayout.Height(44f)))
             ApplyStimulusSettings();
-        if (TooltipButton("Preset neutro", "Restaura uma tela simples: fundo cinza suave, cruz vermelha e sem imagens/textos opcionais nos blocos.", buttonStyle, GUILayout.Height(36f)))
+        if (TooltipButton("Preset neutro", "Restaura uma tela simples: fundo cinza suave, cruz vermelha e sem imagens/textos opcionais nos blocos.", buttonStyle, GUILayout.Height(44f)))
             ResetStimulusSettings();
         GUILayout.EndHorizontal();
     }
@@ -902,25 +905,25 @@ public class Experiment2RedesignedMenu : MonoBehaviour
         shuffleTrials = GUILayout.Toggle(shuffleTrials, "Embaralhar classes antes do run", toggleStyle);
 
         GUILayout.BeginHorizontal();
-        if (TooltipButton("Adicionar classe", "Adiciona uma nova classe/cue ao protocolo para voce configurar nome, codigo, imagem, alvo, tolerancia e hold.", buttonStyle, GUILayout.Height(34f)))
+        if (TooltipButton("Adicionar classe", "Adiciona uma nova classe/cue ao protocolo para voce configurar nome, codigo, imagem, alvo, tolerancia e hold.", buttonStyle, GUILayout.Height(42f)))
             AddCueClass();
-        if (TooltipButton("Autocodigos", "Preenche automaticamente os codigos das classes como 1000, 1001, 1002... Esses codigos sao os markers numericos enviados pelo LSL.", buttonStyle, GUILayout.Height(34f)))
+        if (TooltipButton("Autocodigos", "Preenche automaticamente os codigos das classes como 1000, 1001, 1002... Esses codigos sao os markers numericos enviados pelo LSL.", buttonStyle, GUILayout.Height(42f)))
             AutoCodeCueClasses();
-        if (TooltipButton("Preview ordem", "Gera e mostra a ordem planejada dos trials usando classes ativas, repeticoes por classe, seed e shuffle.", buttonStyle, GUILayout.Height(34f)))
+        if (TooltipButton("Preview ordem", "Gera e mostra a ordem planejada dos trials usando classes ativas, repeticoes por classe, seed e shuffle.", buttonStyle, GUILayout.Height(42f)))
             GenerateTrialPreview();
         GUILayout.EndHorizontal();
 
         GUILayout.BeginHorizontal();
-        if (TooltipButton("Salvar padrao", "Salva esse preset localmente no Unity para recarregar depois sem escolher um arquivo.", buttonStyle, GUILayout.Height(34f)))
+        if (TooltipButton("Salvar padrao", "Salva esse preset localmente no Unity para recarregar depois sem escolher um arquivo.", buttonStyle, GUILayout.Height(42f)))
             SaveCuePresetToPrefs();
-        if (TooltipButton("Carregar padrao", "Carrega o preset local salvo anteriormente no Unity.", buttonStyle, GUILayout.Height(34f)))
+        if (TooltipButton("Carregar padrao", "Carrega o preset local salvo anteriormente no Unity.", buttonStyle, GUILayout.Height(42f)))
             LoadCuePresetFromPrefs(true);
-        if (TooltipButton("Salvar JSON", "Exporta o preset atual para um arquivo JSON que pode ser guardado, versionado ou compartilhado.", buttonStyle, GUILayout.Height(34f)))
+        if (TooltipButton("Salvar JSON", "Exporta o preset atual para um arquivo JSON que pode ser guardado, versionado ou compartilhado.", buttonStyle, GUILayout.Height(42f)))
         {
             StartCoroutine(SaveCuePresetJsonCoroutine());
             GUIUtility.ExitGUI();
         }
-        if (TooltipButton("Carregar JSON", "Importa um preset GRAZ salvo em JSON.", buttonStyle, GUILayout.Height(34f)))
+        if (TooltipButton("Carregar JSON", "Importa um preset GRAZ salvo em JSON.", buttonStyle, GUILayout.Height(42f)))
         {
             StartCoroutine(LoadCuePresetJsonCoroutine());
             GUIUtility.ExitGUI();
@@ -928,12 +931,12 @@ public class Experiment2RedesignedMenu : MonoBehaviour
         GUILayout.EndHorizontal();
 
         GUILayout.BeginHorizontal();
-        if (TooltipButton("Exportar ordem", "Exporta a sequencia planejada dos trials em JSON e CSV para auditoria ou reproducao do run.", buttonStyle, GUILayout.Height(34f)))
+        if (TooltipButton("Exportar ordem", "Exporta a sequencia planejada dos trials em JSON e CSV para auditoria ou reproducao do run.", buttonStyle, GUILayout.Height(42f)))
         {
             StartCoroutine(ExportTrialPlanJsonCoroutine());
             GUIUtility.ExitGUI();
         }
-        if (TooltipButton("Restaurar simples", "Restaura o preset simples inicial com classes de movimento da perna direita em diferentes angulos e relaxado.", buttonStyle, GUILayout.Height(34f)))
+        if (TooltipButton("Restaurar simples", "Restaura o preset simples inicial com classes de movimento da perna direita em diferentes angulos e relaxado.", buttonStyle, GUILayout.Height(42f)))
             ResetDefaultCueClasses();
         GUILayout.EndHorizontal();
 
@@ -1007,7 +1010,7 @@ public class Experiment2RedesignedMenu : MonoBehaviour
             failureDurationText = Field("Tempo insucesso (s)", failureDurationText, "duracao da tela de insucesso");
         }
 
-        if (TooltipButton("Aplicar feedback", "Aplica gravidade, tolerancia e tempo minimo no alvo para o modo com feedback em tempo real.", buttonStyle, GUILayout.Height(36f)))
+        if (TooltipButton("Aplicar feedback", "Aplica gravidade, tolerancia e tempo minimo no alvo para o modo com feedback em tempo real.", buttonStyle, GUILayout.Height(44f)))
             ApplyFeedbackFields();
         Card("Regra experimental V1", "Classe discreta define perna/angulo. Probabilidade controla velocidade. Movimento ocorre somente na Task; sem sinal recente, a perna cai.");
     }
@@ -1019,11 +1022,11 @@ public class Experiment2RedesignedMenu : MonoBehaviour
         GUILayout.BeginVertical(GUI.skin.box);
         GUILayout.BeginHorizontal();
         cueClass.enabled = GUILayout.Toggle(cueClass.enabled, "", toggleStyle, GUILayout.Width(24f));
-        GUILayout.Label("Classe " + index, fieldLabelStyle, GUILayout.Width(70f));
-        cueClass.label = GUILayout.TextField(cueClass.label, textFieldStyle, GUILayout.Height(30f), GUILayout.MinWidth(110f));
-        GUILayout.Label("Codigo", fieldLabelStyle, GUILayout.Width(52f));
-        cueClass.markerCode = GUILayout.TextField(cueClass.markerCode, textFieldStyle, GUILayout.Height(30f), GUILayout.Width(70f));
-        if (TooltipButton("X", "Remove esta classe do preset atual.", buttonStyle, GUILayout.Width(30f), GUILayout.Height(26f)))
+        GUILayout.Label("Classe " + index, fieldLabelStyle, GUILayout.Width(100f));
+        cueClass.label = GUILayout.TextField(cueClass.label, textFieldStyle, GUILayout.Height(38f), GUILayout.MinWidth(110f));
+        GUILayout.Label("Codigo", fieldLabelStyle, GUILayout.Width(76f));
+        cueClass.markerCode = GUILayout.TextField(cueClass.markerCode, textFieldStyle, GUILayout.Height(38f), GUILayout.Width(70f));
+        if (TooltipButton("X", "Remove esta classe do preset atual.", buttonStyle, GUILayout.Width(30f), GUILayout.Height(34f)))
         {
             cueClasses.RemoveAt(index);
             return;
@@ -1031,29 +1034,29 @@ public class Experiment2RedesignedMenu : MonoBehaviour
         GUILayout.EndHorizontal();
 
         GUILayout.BeginHorizontal();
-        GUILayout.Label("ID", fieldLabelStyle, GUILayout.Width(70f));
-        cueClass.classId = GUILayout.TextField(cueClass.classId, textFieldStyle, GUILayout.Height(30f), GUILayout.MinWidth(110f));
-        GUILayout.Label("Alvo", fieldLabelStyle, GUILayout.Width(45f));
-        cueClass.targetAngle = GUILayout.TextField(cueClass.targetAngle, textFieldStyle, GUILayout.Height(30f), GUILayout.Width(56f));
-        GUILayout.Label("Tol", fieldLabelStyle, GUILayout.Width(32f));
-        cueClass.tolerance = GUILayout.TextField(cueClass.tolerance, textFieldStyle, GUILayout.Height(30f), GUILayout.Width(48f));
-        GUILayout.Label("Hold", fieldLabelStyle, GUILayout.Width(42f));
-        cueClass.holdTime = GUILayout.TextField(cueClass.holdTime, textFieldStyle, GUILayout.Height(30f), GUILayout.Width(48f));
+        GUILayout.Label("ID", fieldLabelStyle, GUILayout.Width(100f));
+        cueClass.classId = GUILayout.TextField(cueClass.classId, textFieldStyle, GUILayout.Height(38f), GUILayout.MinWidth(110f));
+        GUILayout.Label("Alvo", fieldLabelStyle, GUILayout.Width(58f));
+        cueClass.targetAngle = GUILayout.TextField(cueClass.targetAngle, textFieldStyle, GUILayout.Height(38f), GUILayout.Width(76f));
+        GUILayout.Label("Tol", fieldLabelStyle, GUILayout.Width(40f));
+        cueClass.tolerance = GUILayout.TextField(cueClass.tolerance, textFieldStyle, GUILayout.Height(38f), GUILayout.Width(68f));
+        GUILayout.Label("Hold", fieldLabelStyle, GUILayout.Width(58f));
+        cueClass.holdTime = GUILayout.TextField(cueClass.holdTime, textFieldStyle, GUILayout.Height(38f), GUILayout.Width(68f));
         GUILayout.EndHorizontal();
 
         if (feedback)
         {
             GUILayout.BeginHorizontal();
-            GUILayout.Label("Comando", fieldLabelStyle, GUILayout.Width(70f));
-            int selectedSide = GUILayout.Toolbar((int)cueClass.legSide, new[] { "Direita", "Esquerda", "Relaxar" }, toolbarStyle, GUILayout.Height(32f));
+            GUILayout.Label("Comando", fieldLabelStyle, GUILayout.Width(100f));
+            int selectedSide = GUILayout.Toolbar((int)cueClass.legSide, new[] { "Direita", "Esquerda", "Relaxar" }, toolbarStyle, GUILayout.Height(40f));
             cueClass.legSide = (GrazLegSide)Mathf.Clamp(selectedSide, 0, 2);
             GUILayout.EndHorizontal();
         }
 
         GUILayout.BeginHorizontal();
-        GUILayout.Label("Imagem", fieldLabelStyle, GUILayout.Width(70f));
-        cueClass.cueImagePath = GUILayout.TextField(cueClass.cueImagePath, textFieldStyle, GUILayout.Height(30f));
-        if (TooltipButton("Escolher", "Escolhe a imagem que aparecera como cue para esta classe.", buttonStyle, GUILayout.Width(82f), GUILayout.Height(26f)))
+        GUILayout.Label("Imagem", fieldLabelStyle, GUILayout.Width(100f));
+        cueClass.cueImagePath = GUILayout.TextField(cueClass.cueImagePath, textFieldStyle, GUILayout.Height(38f));
+        if (TooltipButton("Escolher", "Escolhe a imagem que aparecera como cue para esta classe.", buttonStyle, GUILayout.Width(96f), GUILayout.Height(34f)))
         {
             StartCoroutine(SelectCueImageCoroutine(index));
             GUIUtility.ExitGUI();
@@ -1061,8 +1064,8 @@ public class Experiment2RedesignedMenu : MonoBehaviour
         GUILayout.EndHorizontal();
 
         GUILayout.BeginHorizontal();
-        GUILayout.Label("Descricao", fieldLabelStyle, GUILayout.Width(70f));
-        cueClass.description = GUILayout.TextArea(cueClass.description, textAreaStyle, GUILayout.Height(52f));
+        GUILayout.Label("Descricao", fieldLabelStyle, GUILayout.Width(100f));
+        cueClass.description = GUILayout.TextArea(cueClass.description, textAreaStyle, GUILayout.Height(64f));
         GUILayout.EndHorizontal();
         GUILayout.EndVertical();
     }
@@ -1621,7 +1624,7 @@ public class Experiment2RedesignedMenu : MonoBehaviour
     {
         path = EnsureExtension(path, ".json");
         int repetitions = ParsePositiveInt(repetitionsPerClassText, 1);
-        int seed = ParseInt(randomSeedText, Environment.TickCount);
+        int seed = generatedTrialPlan.Count > 0 ? generatedTrialPlan[0].randomSeed : ParseInt(randomSeedText, Environment.TickCount);
         var data = new GeneratedTrialPlanData
         {
             presetName = presetNameText,
@@ -1964,18 +1967,18 @@ public class Experiment2RedesignedMenu : MonoBehaviour
         GUILayout.EndScrollView();
 
         GUILayout.Space(8f);
-        if (TooltipButton("Validar configuracao", "Confere sessao, log, streams, tempos, classes, imagens, ordem dos trials e criterios do modo atual.", buttonStyle, GUILayout.Height(42f)))
+        if (TooltipButton("Validar configuracao", "Confere sessao, log, streams, tempos, classes, imagens, ordem dos trials e criterios do modo atual.", buttonStyle, GUILayout.Height(50f)))
             ValidateFullConfiguration();
-        if (TooltipButton("Salvar preset", "Salva a configuracao atual como preset padrao local para ser reutilizada depois.", buttonStyle, GUILayout.Height(42f)))
+        if (TooltipButton("Salvar preset", "Salva a configuracao atual como preset padrao local para ser reutilizada depois.", buttonStyle, GUILayout.Height(50f)))
             SaveCuePresetToPrefs();
         if (activeMode != ExperimentMode.FreeLsl)
         {
-            if (TooltipButton("Preview da ordem", "Gera uma pre-visualizacao da ordem dos trials antes de iniciar o run.", buttonStyle, GUILayout.Height(42f)))
+            if (TooltipButton("Preview da ordem", "Gera uma pre-visualizacao da ordem dos trials antes de iniciar o run.", buttonStyle, GUILayout.Height(50f)))
                 GenerateTrialPreview();
         }
 
         GUILayout.Space(8f);
-        if (TooltipButton(PrimaryActionLabel(), PrimaryActionTooltip(), selectedButtonStyle, GUILayout.Height(54f)))
+        if (TooltipButton(PrimaryActionLabel(), PrimaryActionTooltip(), selectedButtonStyle, GUILayout.Height(66f)))
             StartSelectedMode();
         GUILayout.EndVertical();
     }
@@ -2039,7 +2042,7 @@ public class Experiment2RedesignedMenu : MonoBehaviour
         GUILayout.BeginHorizontal(GUI.skin.box);
         GUI.backgroundColor = previousColor;
 
-        GUILayout.Label(ok ? "OK" : "!", ok ? checklistDoneStyle : checklistTodoStyle, GUILayout.Width(34f), GUILayout.Height(34f));
+        GUILayout.Label(ok ? "OK" : "!", ok ? checklistDoneStyle : checklistTodoStyle, GUILayout.Width(34f), GUILayout.Height(42f));
         GUILayout.BeginVertical();
         GUILayout.Label(title, fieldLabelStyle);
         GUILayout.Label(detail, checklistTextStyle);
@@ -2053,7 +2056,7 @@ public class Experiment2RedesignedMenu : MonoBehaviour
         GUI.backgroundColor = active ? new Color(0.1f, 0.42f, 0.22f, 0.9f) : new Color(0.2f, 0.28f, 0.34f, 0.9f);
         GUILayout.BeginHorizontal(GUI.skin.box);
         GUI.backgroundColor = previousColor;
-        GUILayout.Label(active ? "ON" : "i", active ? checklistDoneStyle : checklistTodoStyle, GUILayout.Width(34f), GUILayout.Height(34f));
+        GUILayout.Label(active ? "ON" : "i", active ? checklistDoneStyle : checklistTodoStyle, GUILayout.Width(34f), GUILayout.Height(42f));
         GUILayout.BeginVertical();
         GUILayout.Label(title, fieldLabelStyle);
         GUILayout.Label(detail, checklistTextStyle);
@@ -2105,12 +2108,30 @@ public class Experiment2RedesignedMenu : MonoBehaviour
 
     private void DrawTooltip()
     {
-        if (string.IsNullOrWhiteSpace(GUI.tooltip))
+        if (Event.current.type != EventType.Repaint)
+            return;
+
+        string currentTooltip = GUI.tooltip;
+        if (string.IsNullOrWhiteSpace(currentTooltip))
+        {
+            hoveredTooltip = string.Empty;
+            tooltipHoverStartTime = 0f;
+            return;
+        }
+
+        if (currentTooltip != hoveredTooltip)
+        {
+            hoveredTooltip = currentTooltip;
+            tooltipHoverStartTime = Time.unscaledTime;
+            return;
+        }
+
+        if (Time.unscaledTime - tooltipHoverStartTime < TooltipDelaySeconds)
             return;
 
         Vector2 mouse = Event.current.mousePosition;
         float width = 430f;
-        float height = tooltipStyle.CalcHeight(new GUIContent(GUI.tooltip), width);
+        float height = tooltipStyle.CalcHeight(new GUIContent(currentTooltip), width);
         var rect = new Rect(mouse.x + 18f, mouse.y + 22f, width, height + 16f);
 
         if (rect.xMax > ReferenceWidth - 12f)
@@ -2118,7 +2139,7 @@ public class Experiment2RedesignedMenu : MonoBehaviour
         if (rect.yMax > ReferenceHeight - 12f)
             rect.y = mouse.y - rect.height - 18f;
 
-        GUI.Label(rect, GUI.tooltip, tooltipStyle);
+        GUI.Label(rect, currentTooltip, tooltipStyle);
     }
 
     private void Card(string title, string subtitle)
@@ -2141,8 +2162,8 @@ public class Experiment2RedesignedMenu : MonoBehaviour
     private string Field(string label, string value, string help)
     {
         GUILayout.BeginHorizontal();
-        GUILayout.Label(label, fieldLabelStyle, GUILayout.Width(150f));
-        var newValue = GUILayout.TextField(value, textFieldStyle, GUILayout.Height(32f));
+        GUILayout.Label(label, fieldLabelStyle, GUILayout.Width(190f));
+        var newValue = GUILayout.TextField(value, textFieldStyle, GUILayout.Height(46f));
         GUILayout.Label(help, bodyStyle, GUILayout.Width(210f));
         GUILayout.EndHorizontal();
         return newValue;
@@ -2151,15 +2172,15 @@ public class Experiment2RedesignedMenu : MonoBehaviour
     private string DrawImagePathRow(string label, string path, string dialogTitle, Action<string> assignPath)
     {
         GUILayout.BeginHorizontal();
-        GUILayout.Label(label, fieldLabelStyle, GUILayout.Width(150f));
-        path = GUILayout.TextField(path, textFieldStyle, GUILayout.Height(32f));
+        GUILayout.Label(label, fieldLabelStyle, GUILayout.Width(190f));
+        path = GUILayout.TextField(path, textFieldStyle, GUILayout.Height(40f));
         assignPath?.Invoke(path);
-        if (TooltipButton("Escolher", "Abre o seletor de arquivo para escolher uma imagem.", buttonStyle, GUILayout.Width(82f), GUILayout.Height(28f)))
+        if (TooltipButton("Escolher", "Abre o seletor de arquivo para escolher uma imagem.", buttonStyle, GUILayout.Width(96f), GUILayout.Height(36f)))
         {
             StartCoroutine(SelectImagePathCoroutine(assignPath, dialogTitle));
             GUIUtility.ExitGUI();
         }
-        if (TooltipButton("Limpar", "Remove o caminho da imagem deste campo.", buttonStyle, GUILayout.Width(70f), GUILayout.Height(28f)))
+        if (TooltipButton("Limpar", "Remove o caminho da imagem deste campo.", buttonStyle, GUILayout.Width(82f), GUILayout.Height(36f)))
         {
             path = "";
             assignPath?.Invoke(path);
@@ -2181,8 +2202,8 @@ public class Experiment2RedesignedMenu : MonoBehaviour
         GUILayout.Label(phaseName, fieldLabelStyle);
         imagePath = DrawImagePathRow("Imagem", imagePath, dialogTitle, assignImagePath);
         GUILayout.BeginHorizontal();
-        GUILayout.Label("Texto", fieldLabelStyle, GUILayout.Width(150f));
-        text = GUILayout.TextArea(text, textAreaStyle, GUILayout.Height(58f));
+        GUILayout.Label("Texto", fieldLabelStyle, GUILayout.Width(190f));
+        text = GUILayout.TextArea(text, textAreaStyle, GUILayout.Height(72f));
         GUILayout.EndHorizontal();
         textColor = DrawColorControls("Cor do texto", textColor, DefaultTextColorForPhase(phaseName));
         textSizePercent = Field("Tamanho texto (%)", textSizePercent, "percentual da altura da tela");
@@ -2202,8 +2223,8 @@ public class Experiment2RedesignedMenu : MonoBehaviour
     {
         GUILayout.BeginVertical(GUI.skin.box);
         GUILayout.BeginHorizontal();
-        GUILayout.Label(label, fieldLabelStyle, GUILayout.Width(150f));
-        GUILayout.Box("", GUILayout.Width(42f), GUILayout.Height(24f));
+        GUILayout.Label(label, fieldLabelStyle, GUILayout.Width(190f));
+        GUILayout.Box("", GUILayout.Width(42f), GUILayout.Height(30f));
         var swatch = GUILayoutUtility.GetLastRect();
         if (Event.current.type == EventType.Repaint)
         {
@@ -2213,7 +2234,7 @@ public class Experiment2RedesignedMenu : MonoBehaviour
             GUI.color = previousColor;
         }
         GUILayout.Label("#" + ColorUtility.ToHtmlStringRGB(color), bodyStyle, GUILayout.Width(90f));
-        if (TooltipButton("Preset", "Restaura a cor padrao deste controle.", buttonStyle, GUILayout.Width(72f), GUILayout.Height(26f)))
+        if (TooltipButton("Preset", "Restaura a cor padrao deste controle.", buttonStyle, GUILayout.Width(84f), GUILayout.Height(34f)))
             color = preset;
         GUILayout.EndHorizontal();
 
@@ -2229,7 +2250,7 @@ public class Experiment2RedesignedMenu : MonoBehaviour
     {
         GUILayout.BeginHorizontal();
         GUILayout.Label(channel + ": " + Mathf.RoundToInt(value * 255f), fieldLabelStyle, GUILayout.Width(70f));
-        value = GUILayout.HorizontalSlider(value, 0f, 1f, GUILayout.Height(24f));
+        value = GUILayout.HorizontalSlider(value, 0f, 1f, GUILayout.Height(30f));
         GUILayout.EndHorizontal();
         return value;
     }
@@ -2412,9 +2433,9 @@ public class Experiment2RedesignedMenu : MonoBehaviour
         }
 
         GUILayout.BeginHorizontal();
-        if (TooltipButton("Conectar entrada", "Refaz a busca pela stream LSL Classifications. Ela deve ter dois canais float32: codigo da classe e probabilidade.", buttonStyle, GUILayout.Height(34f)))
+        if (TooltipButton("Conectar entrada", "Refaz a busca pela stream LSL Classifications. Ela deve ter dois canais float32: codigo da classe e probabilidade.", buttonStyle, GUILayout.Height(42f)))
             ConnectClassificationStream();
-        if (TooltipButton("Desconectar entrada", "Fecha apenas o inlet de classificacoes. O outlet de markers do Unity continua independente.", buttonStyle, GUILayout.Height(34f)))
+        if (TooltipButton("Desconectar entrada", "Fecha apenas o inlet de classificacoes. O outlet de markers do Unity continua independente.", buttonStyle, GUILayout.Height(42f)))
             DisconnectClassificationStream();
         GUILayout.EndHorizontal();
         GUILayout.EndVertical();
@@ -2482,9 +2503,9 @@ public class Experiment2RedesignedMenu : MonoBehaviour
         GUILayout.Label(markerTestStatus, bodyStyle);
 
         GUILayout.BeginHorizontal();
-        if (TooltipButton("Publicar stream", "Cria/configura o outlet LSL de markers com o nome, tipo e formato definidos acima.", buttonStyle, GUILayout.Height(34f)))
+        if (TooltipButton("Publicar stream", "Cria/configura o outlet LSL de markers com o nome, tipo e formato definidos acima.", buttonStyle, GUILayout.Height(42f)))
             PublishMarkerStreamForTest();
-        if (TooltipButton("Enviar marker teste", "Envia o marker 9999 pelo outlet LSL para confirmar no receptor Python.", buttonStyle, GUILayout.Height(34f)))
+        if (TooltipButton("Enviar marker teste", "Envia o marker 9999 pelo outlet LSL para confirmar no receptor Python.", buttonStyle, GUILayout.Height(42f)))
             SendMarkerTest();
         GUILayout.EndHorizontal();
         GUILayout.EndVertical();
@@ -2696,8 +2717,23 @@ public class Experiment2RedesignedMenu : MonoBehaviour
         ConfigureExperimentalLogger();
 
         var logger = ExperimentalSessionLogger.Instance;
-        if (logger != null)
+        if (logger == null)
+        {
+            status = "Logger experimental nao encontrado; aquisicao cancelada.";
+            return;
+        }
+        try
+        {
             logger.BeginSession("graz_acquisition_start");
+            ExportTrialPlanJson(Path.ChangeExtension(logger.EventPath, ".plan.json"));
+        }
+        catch (Exception exc)
+        {
+            logger.EndSession("trial_plan_export_failed");
+            status = "Falha ao salvar plano de trials: " + exc.Message;
+            Debug.LogError(status);
+            return;
+        }
 
         if (ui != null)
         {
@@ -3019,12 +3055,13 @@ public class Experiment2RedesignedMenu : MonoBehaviour
         darkPanelStyle = new GUIStyle(GUI.skin.box) { padding = new RectOffset(14, 14, 14, 14) };
         darkPanelStyle.normal.background = Texture2D.grayTexture;
 
-        titleStyle = new GUIStyle(GUI.skin.label) { fontSize = 30, fontStyle = FontStyle.Bold, normal = { textColor = Color.black }, wordWrap = true };
-        subtitleStyle = new GUIStyle(GUI.skin.label) { fontSize = 16, normal = { textColor = new Color(0.18f, 0.20f, 0.21f) }, wordWrap = true };
-        sectionTitleStyle = new GUIStyle(GUI.skin.label) { fontSize = 18, fontStyle = FontStyle.Bold, normal = { textColor = Color.white }, wordWrap = true };
-        bodyStyle = new GUIStyle(GUI.skin.label) { fontSize = 14, normal = { textColor = Color.white }, wordWrap = true };
-        fieldLabelStyle = new GUIStyle(GUI.skin.label) { fontSize = 15, fontStyle = FontStyle.Bold, normal = { textColor = Color.white }, wordWrap = true };
-        statusStyle = new GUIStyle(GUI.skin.label) { fontSize = 15, fontStyle = FontStyle.Bold, alignment = TextAnchor.MiddleRight, normal = { textColor = new Color(0.05f, 0.42f, 0.46f) }, wordWrap = true };
+        titleStyle = new GUIStyle(GUI.skin.label) { fontSize = 34, fontStyle = FontStyle.Bold, normal = { textColor = Color.black }, wordWrap = true };
+        subtitleStyle = new GUIStyle(GUI.skin.label) { fontSize = 19, normal = { textColor = new Color(0.18f, 0.20f, 0.21f) }, wordWrap = true };
+        sectionTitleStyle = new GUIStyle(GUI.skin.label) { fontSize = 22, fontStyle = FontStyle.Bold, normal = { textColor = Color.white }, wordWrap = true };
+        bodyStyle = new GUIStyle(GUI.skin.label) { fontSize = 17, normal = { textColor = Color.white }, wordWrap = true };
+        fieldLabelStyle = new GUIStyle(GUI.skin.label) { fontSize = 18, fontStyle = FontStyle.Bold, normal = { textColor = Color.white }, wordWrap = true };
+        fieldLabelStyle.wordWrap = true;
+        statusStyle = new GUIStyle(GUI.skin.label) { fontSize = 18, fontStyle = FontStyle.Bold, alignment = TextAnchor.MiddleRight, normal = { textColor = new Color(0.05f, 0.42f, 0.46f) }, wordWrap = true };
         statusBoxStyle = new GUIStyle(GUI.skin.box)
         {
             padding = new RectOffset(12, 12, 8, 8),
@@ -3032,7 +3069,7 @@ public class Experiment2RedesignedMenu : MonoBehaviour
         };
         checklistDoneStyle = new GUIStyle(GUI.skin.box)
         {
-            fontSize = 14,
+            fontSize = 17,
             fontStyle = FontStyle.Bold,
             alignment = TextAnchor.MiddleCenter,
             normal = { textColor = Color.white, background = Texture2D.grayTexture }
@@ -3043,15 +3080,15 @@ public class Experiment2RedesignedMenu : MonoBehaviour
         };
         checklistTextStyle = new GUIStyle(GUI.skin.label)
         {
-            fontSize = 13,
+            fontSize = 16,
             normal = { textColor = new Color(0.86f, 0.88f, 0.88f) },
             wordWrap = true
         };
-        buttonStyle = new GUIStyle(GUI.skin.button) { fontSize = 15, fontStyle = FontStyle.Bold, wordWrap = true };
-        selectedButtonStyle = new GUIStyle(GUI.skin.button) { fontSize = 16, fontStyle = FontStyle.Bold, wordWrap = true };
+        buttonStyle = new GUIStyle(GUI.skin.button) { fontSize = 18, fontStyle = FontStyle.Bold, wordWrap = true };
+        selectedButtonStyle = new GUIStyle(GUI.skin.button) { fontSize = 19, fontStyle = FontStyle.Bold, wordWrap = true };
         tooltipStyle = new GUIStyle(GUI.skin.box)
         {
-            fontSize = 14,
+            fontSize = 17,
             fontStyle = FontStyle.Bold,
             alignment = TextAnchor.MiddleLeft,
             wordWrap = true,
@@ -3060,25 +3097,25 @@ public class Experiment2RedesignedMenu : MonoBehaviour
         };
         textFieldStyle = new GUIStyle(GUI.skin.textField)
         {
-            fontSize = 15,
+            fontSize = 18,
             alignment = TextAnchor.MiddleLeft,
             padding = new RectOffset(8, 8, 5, 5)
         };
         textAreaStyle = new GUIStyle(GUI.skin.textArea)
         {
-            fontSize = 15,
+            fontSize = 18,
             wordWrap = true,
             padding = new RectOffset(8, 8, 6, 6)
         };
         toggleStyle = new GUIStyle(GUI.skin.toggle)
         {
-            fontSize = 14,
+            fontSize = 17,
             wordWrap = true,
             padding = new RectOffset(22, 4, 3, 3)
         };
         toolbarStyle = new GUIStyle(GUI.skin.button)
         {
-            fontSize = 14,
+            fontSize = 17,
             fontStyle = FontStyle.Bold,
             alignment = TextAnchor.MiddleCenter
         };
